@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "659964138766",
+    "project_id": "petresq-6ba05",
+    "storage_bucket": "petresq-6ba05.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:659964138766:android:6bf55728c67e37c776335f",
+        "android_client_info": {
+          "package_name": "com.pettresq"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYd_wwbTyhHrSvWsTmrH8x66QZc8-WoAM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
