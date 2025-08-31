@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react"
-import { ScrollView, KeyboardAvoidingView, Platform, View, TouchableOpacity } from "react-native"
+"use client"
+
+import { useState, useEffect } from "react"
+import { ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import tw from "twrnc"
 import { loginUser } from "../../utils/Authentication"
@@ -17,10 +19,7 @@ export default function LoginScreen({ navigation, route }) {
   // Notification after email verification
   useEffect(() => {
     if (route.params?.emailVerified) {
-      sendLocalNotification(
-        "Email Verified",
-        "Your email is now verified! You can successfully log in."
-      )
+      sendLocalNotification("Email Verified", "Your email is now verified! You can successfully log in.")
     }
   }, [route.params])
 
@@ -41,10 +40,7 @@ export default function LoginScreen({ navigation, route }) {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 25}
       >
-        <ScrollView
-          contentContainerStyle={tw`flex-grow justify-center px-6`}
-          keyboardShouldPersistTaps="handled"
-        >
+        <ScrollView contentContainerStyle={tw`flex-grow justify-center px-6`} keyboardShouldPersistTaps="handled">
           <CustomText style={tw`text-2xl font-semibold text-center mb-6`}>Login</CustomText>
 
           <CustomInput
@@ -56,26 +52,18 @@ export default function LoginScreen({ navigation, route }) {
           />
           <CustomInput
             placeholder="Password"
-            secureTextEntry
+            isPassword={true}
             value={password}
             onChangeText={setPassword}
             style={tw`mt-4`}
           />
 
-          <TouchableOpacity
-            style={tw`bg-blue-600 py-3 rounded-lg items-center mt-6`}
-            onPress={handleLogin}
-          >
+          <TouchableOpacity style={tw`bg-blue-600 py-3 rounded-lg items-center mt-6`} onPress={handleLogin}>
             <CustomText style={tw`text-white text-base font-semibold`}>Sign In</CustomText>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => navigation.navigate("Register")}
-            style={tw`mt-5`}
-          >
-            <CustomText style={tw`text-gray-600 text-center text-sm`}>
-              Don’t have an account? Register
-            </CustomText>
+          <TouchableOpacity onPress={() => navigation.navigate("Register")} style={tw`mt-5`}>
+            <CustomText style={tw`text-gray-600 text-center text-sm`}>Don’t have an account? Register</CustomText>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
