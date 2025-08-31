@@ -43,7 +43,7 @@ export default function RegisterScreen({ navigation }) {
       <View style={tw`flex-row items-center justify-center py-4 border-b border-gray-200`}>
         <TouchableOpacity
           style={tw`absolute left-4`}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("Login")}
         >
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
@@ -65,8 +65,10 @@ export default function RegisterScreen({ navigation }) {
           <CustomText style={tw`text-white text-base font-semibold`}>Sign Up</CustomText>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.goBack()} style={tw`mt-5`}>
-          <CustomText style={tw`text-gray-600 text-center text-sm`}>Already have an account? Login</CustomText>
+        <TouchableOpacity onPress={() => navigation.navigate("Login")} style={tw`mt-5`}>
+          <CustomText style={tw`text-gray-600 text-center text-sm`}>
+            Already have an account? Login
+          </CustomText>
         </TouchableOpacity>
       </ScrollView>
 
