@@ -141,7 +141,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
               Map: { comp: Ionicons, name: "map-outline" },
               "AI Search": { comp: MaterialCommunityIcons, name: "dog" },
               Community: { comp: Ionicons, name: "people-outline" },
-              Leaderboard: { comp: Ionicons, name: "trophy-outline" },
+              Profile: { comp: Ionicons, name: "person" },
             }
 
             return (
@@ -176,7 +176,7 @@ export default function BottomNav() {
       <Tab.Screen name="Map" component={HomeScreen} />
       <Tab.Screen name="AI Search" component={HomeScreen} />
       <Tab.Screen name="Community" component={HomeScreen} />
-      <Tab.Screen name="Leaderboard" component={HomeScreen} />
+      <Tab.Screen name="Profile" component={HomeScreen} />
     </Tab.Navigator>
   )
 }

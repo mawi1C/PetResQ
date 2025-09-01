@@ -1,17 +1,15 @@
-// components/CustomText.js
-import React from "react"
 import { Text } from "react-native"
 import tw from "twrnc"
 
-// ✅ Poppins-based Text component
 export default function CustomText({
   children,
   style,
-  weight = "Regular", // Regular | Medium | SemiBold
+  weight = "Regular", // 'Medium' | 'SemiBold' | 'Regular'
+  size = "base", // Tailwind sizes like: 'xs', 'sm', 'base', 'lg', 'xl'
+  color = "black", // Text color
   ...props
 }) {
-  // Map weights to loaded Poppins fonts
-  const fontFamilyMap = {
+  const fontMap = {
     Regular: "Poppins-Regular",
     Medium: "Poppins-Medium",
     SemiBold: "Poppins-SemiBold",
@@ -19,12 +17,8 @@ export default function CustomText({
 
   return (
     <Text
-      style={[
-        tw`text-base text-gray-800`,
-        { fontFamily: fontFamilyMap[weight] || fontFamilyMap.Regular },
-        style,
-      ]}
       {...props}
+      style={[tw`text-${size} text-[${color}]`, { fontFamily: fontMap[weight] || "Poppins-Regular" }, style]}
     >
       {children}
     </Text>

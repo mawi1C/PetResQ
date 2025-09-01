@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react"
-import { View, ActivityIndicator, Text } from "react-native"
+import { View, ActivityIndicator } from "react-native"
 import { NavigationContainer } from "@react-navigation/native"
 import { createNativeStackNavigator } from "@react-navigation/native-stack"
 import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "./firebase"
 import * as Font from "expo-font"
 import tw from "twrnc"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 // Screens
 import LoginScreen from "./screens/authscreens/LoginScreen"
@@ -19,6 +20,7 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [fontsLoaded, setFontsLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [onboardingSeen, setOnboardingSeen] = useState(null)
 
   const loadFonts = async () => {
     await Font.loadAsync({
@@ -29,9 +31,15 @@ export default function App() {
     setFontsLoaded(true)
   }
 
+  const checkOnboarding = async () => {
+    const seen = await AsyncStorage.getItem("onboardingSeen")
+    setOnboardingSeen(seen === "true")
+  }
+
   useEffect(() => {
     const init = async () => {
       await loadFonts()
+      await checkOnboarding()
 
       const unsubscribe = onAuthStateChanged(auth, (authUser) => {
         if (authUser?.emailVerified) {
@@ -48,30 +56,54 @@ export default function App() {
     init()
   }, [])
 
-  if (!fontsLoaded || loading) {
+  if (!fontsLoaded || loading || onboardingSeen === null) {
     return (
       <View style={tw`flex-1 justify-center items-center`}>
         <ActivityIndicator size="large" color="#000" />
-        <Text style={tw`mt-4 text-lg`}>Loading...</Text>
       </View>
     )
   }
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {/* Always start with Onboarding */}
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-
-        {!user && (
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          gestureEnabled: true,
+          animation: "slide_from_right",
+        }}
+      >
+        {user ? (
+          // 🔹 User logged in → show MainTabs (with Home as default tab)
+          <Stack.Screen
+            name="MainTabs"
+            component={BottomNav}
+            options={{ animation: "fade_from_bottom" }}
+          />
+        ) : onboardingSeen ? (
+          // 🔹 Onboarding already seen → show Auth flow
           <>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{ animation: "slide_from_left" }}
+            />
+            <Stack.Screen
+              name="Register"
+              component={RegisterScreen}
+              options={{ animation: "slide_from_right" }}
+            />
           </>
+        ) : (
+          // 🔹 First time → Onboarding
+          <Stack.Screen
+            name="Onboarding"
+            component={OnboardingScreen}
+            options={{ animation: "fade" }}
+          />
         )}
-
-        {user && <Stack.Screen name="MainTabs" component={BottomNav} />}
       </Stack.Navigator>
     </NavigationContainer>
   )
+
 }

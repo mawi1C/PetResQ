@@ -1,10 +1,17 @@
 import React, { useEffect, useRef } from "react"
-import { View, TouchableOpacity, Modal, Animated, Easing } from "react-native"
+import { View, TouchableOpacity, Modal, Animated } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import tw from "twrnc"
 import CustomText from "./CustomText"
 
-export default function ErrorModal({ visible, onClose, description }) {
+export default function ErrorModal({
+  visible,
+  onClose,
+  description,
+  type = "error",
+  showResend = false,   // 🔹 new
+  onResend,             // 🔹 new
+}) {
   const scaleAnim = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
@@ -20,6 +27,23 @@ export default function ErrorModal({ visible, onClose, description }) {
     }
   }, [visible])
 
+  const getIcon = () => {
+    switch (type) {
+      case "error":
+        return { name: "close-circle", color: "#ef4444" }
+      case "warning":
+        return { name: "warning", color: "#f59e0b" }
+      case "lock":
+        return { name: "lock-closed", color: "#3b82f6" }
+      case "info":
+        return { name: "information-circle", color: "#3b82f6" }
+      default:
+        return { name: "alert-circle", color: "#ef4444" }
+    }
+  }
+
+  const { name, color } = getIcon()
+
   return (
     <Modal
       animationType="fade"
@@ -34,9 +58,9 @@ export default function ErrorModal({ visible, onClose, description }) {
             { transform: [{ scale: scaleAnim }] },
           ]}
         >
-          {/* Header with X icon and title */}
+          {/* Icon */}
           <View style={tw`flex-row items-center justify-center mb-2`}>
-            <Ionicons name="close-circle" size={50} color="#ef4444" style={tw`mr-2`} />
+            <Ionicons name={name} size={50} color={color} />
           </View>
 
           {/* Description */}
@@ -44,15 +68,27 @@ export default function ErrorModal({ visible, onClose, description }) {
             {description}
           </CustomText>
 
-          {/* Close Button */}
+          {/* Main Button */}
           <TouchableOpacity
-            style={tw`bg-blue-600 py-2 rounded-lg`}
+            style={tw`bg-blue-600 py-2 rounded-lg mb-2`}
             onPress={onClose}
           >
-            <CustomText style={tw`text-white text-center font-semibold py-1.5`}>
+            <CustomText weight="Medium" style={tw`text-white text-center text-sm py-1.5`}>
               OK
             </CustomText>
           </TouchableOpacity>
+
+          {/* 🔹 Conditionally render Resend button */}
+          {showResend && (
+            <TouchableOpacity
+              style={tw`border border-blue-600 py-2 rounded-lg`}
+              onPress={onResend}
+            >
+              <CustomText style={tw`text-blue-600 text-center text-sm font-semibold py-1.5`}>
+                Resend Verification Email
+              </CustomText>
+            </TouchableOpacity>
+          )}
         </Animated.View>
       </View>
     </Modal>

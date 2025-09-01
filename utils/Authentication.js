@@ -1,6 +1,7 @@
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signOut,
   sendEmailVerification,
 } from "firebase/auth"
 import {
@@ -11,6 +12,7 @@ import {
 } from "firebase/firestore"
 import { auth, db } from "../firebase"
 import { sendLocalNotification } from "./NotificationService" // ✅ local notification only
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 // 🔹 Input Sanitizer
 const sanitizeInput = (input) => input?.trim()
@@ -18,11 +20,17 @@ const sanitizeInput = (input) => input?.trim()
 // 🔹 Password Strength Validator
 const validatePasswordStrength = (password) => {
   const minLength = 8
-  const hasUppercase = /[A-Z]/.test(password)
-  const hasLowercase = /[a-z]/.test(password)
-  const hasNumber = /[0-9]/.test(password)
+  const hasUpperCase = /[A-Z]/.test(password)
+  const hasLowerCase = /[a-z]/.test(password)
+  const hasNumbers = /\d/.test(password)
   const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password)
-  return { isValid: password.length >= minLength && hasUppercase && hasLowercase && hasNumber && hasSpecialChar }
+
+  const score = [hasUpperCase, hasLowerCase, hasNumbers, hasSpecialChar].filter(Boolean).length
+
+  return {
+    isValid: password.length >= minLength && score >= 3,
+    score,
+  }
 }
 
 // 🔹 Firebase Error Mapper
@@ -31,13 +39,16 @@ const getFirebaseErrorMessage = (error) => {
     case "auth/user-not-found":
       return "No account found with this email"
     case "auth/wrong-password":
-      return "Incorrect password"
+    case "auth/invalid-credential":
+      return "Invalid email or password"
     case "auth/invalid-email":
       return "Invalid email address"
     case "auth/email-already-in-use":
       return "This email is already registered. Please log in instead"
     case "auth/weak-password":
       return "Password must be at least 8 characters with uppercase, lowercase, number, and special character"
+    case "auth/too-many-requests":
+      return "Too many failed attempts. Please try again later"
     case "auth/network-request-failed":
       return "Please check your internet connection"
     default:
@@ -45,7 +56,7 @@ const getFirebaseErrorMessage = (error) => {
   }
 }
 
-// 🔹 Register User
+// 🔹 Register User (copied + local notification)
 export const registerUser = async (fullName, email, phone, location, password) => {
   try {
     if (!fullName || !email || !phone || !location || !password) {
@@ -88,41 +99,47 @@ export const registerUser = async (fullName, email, phone, location, password) =
       "Your account has been created successfully! Please verify your email before logging in."
     )
 
-    // ❌ Push notification commented out
-    // sendPushNotification(user.uid, "Account Created", "Please verify your email")
-
     return { success: true, user }
   } catch (error) {
     return { success: false, error: getFirebaseErrorMessage(error) }
   }
 }
 
-// 🔹 Login User
-export const loginUser = async (email, password) => {
+// 🔹 Login User (copied + local notification)
+export const loginUser = async (email, password, rememberMe = false) => {
   try {
     if (!email || !password) {
       return { success: false, error: "Email and password are required" }
     }
 
     const sanitizedEmail = sanitizeInput(email)
+
     const userCredential = await signInWithEmailAndPassword(auth, sanitizedEmail, password)
     const user = userCredential.user
 
     if (!user.emailVerified) {
-      return { success: false, error: "Please verify your email before logging in" }
+      await signOut(auth)
+      return {
+        success: false,
+        error: "Please verify your email before logging in",
+        needsVerification: true,
+      }
+    }
+
+    if (rememberMe) {
+      await AsyncStorage.setItem("rememberUser", "true")
+    } else {
+      await AsyncStorage.removeItem("rememberUser")
     }
 
     const userDoc = await getDoc(doc(db, "users", user.uid))
     const userData = userDoc.exists() ? userDoc.data() : null
 
-    // ✅ Local notification for verified email
+    // ✅ Local notification for verified login
     sendLocalNotification(
-      "Email Verified",
-      "Your email is now verified! You can successfully log in."
+      "Login Successful",
+      "Welcome back! You are now logged in."
     )
-
-    // ❌ Push notification commented out
-    // sendPushNotification(user.uid, "Email Verified", "You can now log in")
 
     return { success: true, user, userData }
   } catch (error) {
