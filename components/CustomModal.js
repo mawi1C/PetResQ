@@ -37,6 +37,8 @@ export default function ErrorModal({
         return { name: "lock-closed", color: "#3b82f6" }
       case "info":
         return { name: "information-circle", color: "#3b82f6" }
+      case "success":
+        return { name: "checkmark-circle", color: "#00C666" }
       default:
         return { name: "alert-circle", color: "#ef4444" }
     }

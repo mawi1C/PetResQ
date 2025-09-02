@@ -11,7 +11,7 @@ import {
   getDoc,
 } from "firebase/firestore"
 import { auth, db } from "../firebase"
-import { sendLocalNotification } from "./NotificationService" // ✅ local notification only
+import { sendLocalNotification } from "./NotificationService"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
 // 🔹 Input Sanitizer
@@ -56,14 +56,15 @@ const getFirebaseErrorMessage = (error) => {
   }
 }
 
-// 🔹 Register User (copied + local notification)
-export const registerUser = async (fullName, email, phone, location, password) => {
+// 🔹 Register User
+export const registerUser = async (firstName, lastName, email, phone, location, password) => {
   try {
-    if (!fullName || !email || !phone || !location || !password) {
+    if (!firstName || !lastName || !email || !phone || !location || !password) {
       return { success: false, error: "All fields are required" }
     }
 
-    const sanitizedFullName = sanitizeInput(fullName)
+    const sanitizedFirstName = sanitizeInput(firstName)
+    const sanitizedLastName = sanitizeInput(lastName)
     const sanitizedEmail = sanitizeInput(email)
     const sanitizedPhone = sanitizeInput(phone)
     const sanitizedLocation = sanitizeInput(location)
@@ -82,7 +83,9 @@ export const registerUser = async (fullName, email, phone, location, password) =
     await sendEmailVerification(user)
 
     await setDoc(doc(db, "users", user.uid), {
-      fullName: sanitizedFullName,
+      firstName: sanitizedFirstName,
+      lastName: sanitizedLastName,
+      fullName: `${sanitizedFirstName} ${sanitizedLastName}`,
       email: sanitizedEmail,
       phone: sanitizedPhone,
       location: sanitizedLocation,
@@ -93,7 +96,6 @@ export const registerUser = async (fullName, email, phone, location, password) =
       createdAt: serverTimestamp(),
     })
 
-    // ✅ Local notification after signup
     sendLocalNotification(
       "Account Created",
       "Your account has been created successfully! Please verify your email before logging in."
@@ -105,7 +107,7 @@ export const registerUser = async (fullName, email, phone, location, password) =
   }
 }
 
-// 🔹 Login User (copied + local notification)
+// 🔹 Login User
 export const loginUser = async (email, password, rememberMe = false) => {
   try {
     if (!email || !password) {
@@ -134,12 +136,6 @@ export const loginUser = async (email, password, rememberMe = false) => {
 
     const userDoc = await getDoc(doc(db, "users", user.uid))
     const userData = userDoc.exists() ? userDoc.data() : null
-
-    // ✅ Local notification for verified login
-    sendLocalNotification(
-      "Login Successful",
-      "Welcome back! You are now logged in."
-    )
 
     return { success: true, user, userData }
   } catch (error) {

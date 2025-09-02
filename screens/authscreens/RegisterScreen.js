@@ -9,8 +9,10 @@ import {
   Animated,
   Keyboard,
   Easing,
+  ActivityIndicator,
 } from "react-native"
 import { useNavigation } from "@react-navigation/native"
+import { Ionicons } from "@expo/vector-icons"
 import tw from "twrnc"
 import { registerUser } from "../../utils/Authentication"
 import { sendLocalNotification } from "../../utils/NotificationService"
@@ -22,7 +24,8 @@ export default function RegisterScreen() {
   const navigation = useNavigation()
 
   const [formData, setFormData] = useState({
-    fullName: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
     location: "",
@@ -111,7 +114,8 @@ export default function RegisterScreen() {
 
   useEffect(() => {
     if (formData.password.length > 0 && barWidth > 0) {
-      const targetWidth = (getPasswordStrength(formData.password).percentage / 100) * barWidth
+      const targetWidth =
+        (getPasswordStrength(formData.password).percentage / 100) * barWidth
       Animated.timing(strengthAnim, {
         toValue: targetWidth,
         duration: 400,
@@ -122,8 +126,6 @@ export default function RegisterScreen() {
       strengthAnim.setValue(0)
     }
   }, [formData.password, barWidth])
-
-
 
   // 🔹 Password Strength Checker
   const getPasswordStrength = (password) => {
@@ -136,19 +138,28 @@ export default function RegisterScreen() {
     if (score <= 1) {
       return { label: "Weak", color: "red", textColor: "red-500", percentage: 33 }
     } else if (score === 2 || score === 3) {
-      return { label: "Medium", color: "orange", textColor: "orange-500", percentage: 66 }
+      return {
+        label: "Medium",
+        color: "orange",
+        textColor: "orange-500",
+        percentage: 66,
+      }
     } else {
-      return { label: "Strong", color: "green", textColor: "green-500", percentage: 100 }
+      return {
+        label: "Strong",
+        color: "green",
+        textColor: "green-500",
+        percentage: 100,
+      }
     }
   }
-
-
 
   // 🔹 Step Validation
   const validateStep = () => {
     const errors = {}
     if (step === 1) {
-      if (!formData.fullName.trim()) errors.fullName = "Full name is required"
+      if (!formData.firstName.trim()) errors.firstName = "First name is required"
+      if (!formData.lastName.trim()) errors.lastName = "Last name is required"
       if (!formData.email.trim()) {
         errors.email = "Email address is required"
       } else {
@@ -180,9 +191,10 @@ export default function RegisterScreen() {
 
     setLoading(true)
     try {
-      const { fullName, email, phone, location, password } = formData
+      const { firstName, lastName, email, phone, location, password } = formData
       const result = await registerUser(
-        fullName,
+        firstName,
+        lastName,
         email,
         phone,
         location,
@@ -195,7 +207,9 @@ export default function RegisterScreen() {
           "Your account has been created successfully! Please verify your email before logging in."
         )
 
-        setModalMessage("Your account is ready! Check your inbox or spam to verify your email.")
+        setModalMessage(
+          "Your account is ready! Check your inbox or spam to verify your email."
+        )
         setModalType("info")
         setModalVisible(true)
       } else {
@@ -225,6 +239,12 @@ export default function RegisterScreen() {
     }
   }
 
+  const handleBack = () => {
+    if (step > 1) {
+      setStep(step - 1)
+    }
+  }
+
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
     if (validationErrors[field]) {
@@ -244,7 +264,7 @@ export default function RegisterScreen() {
           { transform: [{ translateY: shift }] },
         ]}
       >
-        {/* Step Indicator with animation */}
+        {/* Step Indicator */}
         <View style={tw`flex-row w-50% justify-center mt-6 mb-2`}>
           <View style={tw`h-2 flex-1 mx-1 bg-gray-200 rounded-full overflow-hidden`}>
             <Animated.View
@@ -279,14 +299,25 @@ export default function RegisterScreen() {
         {step === 1 && (
           <>
             <CustomInput
-              label="Full Name"
-              placeholder="Enter your full name"
-              value={formData.fullName}
-              onChangeText={(t) => handleChange("fullName", t)}
-              error={validationErrors.fullName}
+              label="First Name"
+              placeholder="First name"
+              value={formData.firstName}
+              onChangeText={(t) => handleChange("firstName", t)}
+              error={validationErrors.firstName}
               editable={!loading}
               iconName="person"
             />
+            <View style={tw`mt-4`}>
+              <CustomInput
+                label="Last Name"
+                placeholder="Last name"
+                value={formData.lastName}
+                onChangeText={(t) => handleChange("lastName", t)}
+                error={validationErrors.lastName}
+                editable={!loading}
+                iconName="person"
+              />
+            </View>
             <View style={tw`mt-4 mb-4`}>
               <CustomInput
                 label="Email Address"
@@ -364,7 +395,9 @@ export default function RegisterScreen() {
                 <CustomText
                   size="sm"
                   weight="Medium"
-                  style={tw`mt-1 text-${getPasswordStrength(formData.password).textColor}`}
+                  style={tw`mt-1 text-${
+                    getPasswordStrength(formData.password).textColor
+                  }`}
                 >
                   {getPasswordStrength(formData.password).label}
                 </CustomText>
@@ -386,26 +419,56 @@ export default function RegisterScreen() {
           </>
         )}
 
-
-
-
-        {/* Full Width Button */}
-        <TouchableOpacity
-          onPress={handleNext}
-          style={tw`${
-            loading ? "bg-blue-400" : "bg-blue-500"
-          } py-3 rounded-lg mt-0`}
-          disabled={loading}
-          activeOpacity={0.8}
-        >
-          <CustomText
-            weight="Medium"
-            color="white"
-            style={tw`text-center text-[16px]`}
+        {/* 🔹 Navigation Buttons */}
+        {step === 1 ? (
+          <TouchableOpacity
+            onPress={handleNext}
+            style={tw`w-full mt-2 ${loading ? "bg-blue-400" : "bg-blue-500"} py-3 rounded-lg`}
+            disabled={loading}
+            activeOpacity={0.8}
           >
-            {loading ? "Please wait..." : step < 3 ? "Next" : "Sign Up"}
-          </CustomText>
-        </TouchableOpacity>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <CustomText
+                weight="Medium"
+                color="white"
+                style={tw`text-center text-[16px]`}
+              >
+                Next
+              </CustomText>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={tw`flex-row items-center mt-2`}>
+            <TouchableOpacity
+              style={tw`bg-gray-100 w-12 h-12 rounded-lg justify-center items-center`}
+              onPress={handleBack}
+              disabled={loading}
+            >
+              <Ionicons name="chevron-back" size={22} color="#505050ff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleNext}
+              style={tw`flex-1 ml-3 ${loading ? "bg-blue-400" : "bg-blue-500"} py-3 rounded-lg`}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <CustomText
+                  weight="Medium"
+                  color="white"
+                  style={tw`text-center text-[16px]`}
+                >
+                  {step < 3 ? "Next" : "Sign Up"}
+                </CustomText>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
         <TouchableOpacity
           onPress={() => navigation.navigate("Login")}
@@ -425,19 +488,23 @@ export default function RegisterScreen() {
         visible={modalVisible}
         onClose={() => {
           setModalVisible(false)
-          if (modalType === "info" && modalMessage.includes("verify your email")) {
-            navigation.replace("Login")   // ✅ Redirects after pressing OK
+          if (
+            modalType === "info" &&
+            modalMessage.includes("verify your email")
+          ) {
+            navigation.replace("Login")
           }
         }}
         description={modalMessage}
         type={modalType}
-        showResend={modalType === "info" && modalMessage.includes("verify your email")}
+        showResend={
+          modalType === "info" && modalMessage.includes("verify your email")
+        }
         onResend={() => {
           console.log("Resend email to:", formData.email)
           showModal("Verification email resent. Please check your inbox.", "info")
         }}
       />
-
     </KeyboardAvoidingView>
   )
 }

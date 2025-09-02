@@ -8,10 +8,13 @@ import * as Font from "expo-font"
 import tw from "twrnc"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
+// Components
+import BottomNav from "./components/BottomNav"
+
 // Screens
 import LoginScreen from "./screens/authscreens/LoginScreen"
 import RegisterScreen from "./screens/authscreens/RegisterScreen"
-import BottomNav from "./components/BottomNav"
+import NotificationScreen from "./screens/mainscreens/NotificationScreen"
 import OnboardingScreen from "./screens/OnBoardingScreen"
 
 const Stack = createNativeStackNavigator()
@@ -75,11 +78,20 @@ export default function App() {
       >
         {user ? (
           // 🔹 User logged in → show MainTabs (with Home as default tab)
-          <Stack.Screen
-            name="MainTabs"
-            component={BottomNav}
-            options={{ animation: "fade_from_bottom" }}
-          />
+          <>
+            <Stack.Screen
+              name="MainTabs"
+              component={BottomNav}
+              options={{ animation: "fade_from_bottom" }}
+            />
+
+            {/* 🔔 Add this here */}
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationScreen}
+              options={{ animation: "slide_from_right" }}
+            />
+          </>
         ) : onboardingSeen ? (
           // 🔹 Onboarding already seen → show Auth flow
           <>

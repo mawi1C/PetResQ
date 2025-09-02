@@ -1,26 +1,27 @@
-import React from "react"
-import { View, Animated, Dimensions } from "react-native"
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"
-import HomeScreen from "../screens/mainscreens/HomeScreen"
+import React from "react";
+import { View, Animated, Dimensions } from "react-native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import HomeScreen from "../screens/mainscreens/HomeScreen";
+import ProfileScreen from "../screens/mainscreens/ProfileScreen";
 
 // Create tab navigator
-const Tab = createBottomTabNavigator()
-const { width } = Dimensions.get("window")
+const Tab = createBottomTabNavigator();
+const { width } = Dimensions.get("window");
 
 // Layout constants
-const tabBarWidth = width * 0.7
-const paddingHorizontal = 8
-const iconWidth = 45
-const iconHeight = 40
-const contentWidth = tabBarWidth - paddingHorizontal * 2
-const tabSpacing = contentWidth / 5
-const maxSafeScale = Math.min((tabSpacing / iconWidth) * 0.8, 1.3)
+const tabBarWidth = width * 0.7;
+const paddingHorizontal = 8;
+const iconWidth = 45;
+const iconHeight = 40;
+const contentWidth = tabBarWidth - paddingHorizontal * 2;
+const tabSpacing = contentWidth / 5;
+const maxSafeScale = Math.min((tabSpacing / iconWidth) * 0.8, 1.3);
 
 // 🔹 Animated Icon
 const AnimatedTabIcon = ({ focused, IconComponent, iconName, iconSize = 20 }) => {
-  const scaleValue = React.useRef(new Animated.Value(1)).current
-  const opacityValue = React.useRef(new Animated.Value(0.7)).current
+  const scaleValue = React.useRef(new Animated.Value(1)).current;
+  const opacityValue = React.useRef(new Animated.Value(0.7)).current;
 
   React.useEffect(() => {
     Animated.spring(scaleValue, {
@@ -28,14 +29,14 @@ const AnimatedTabIcon = ({ focused, IconComponent, iconName, iconSize = 20 }) =>
       useNativeDriver: true,
       tension: 100,
       friction: 6,
-    }).start()
+    }).start();
 
     Animated.timing(opacityValue, {
       toValue: focused ? 1 : 0.6,
       duration: 250,
       useNativeDriver: true,
-    }).start()
-  }, [focused])
+    }).start();
+  }, [focused]);
 
   return (
     <View style={{ width: iconWidth, height: iconHeight, justifyContent: "center", alignItems: "center" }}>
@@ -43,18 +44,18 @@ const AnimatedTabIcon = ({ focused, IconComponent, iconName, iconSize = 20 }) =>
         <IconComponent name={iconName} size={iconSize} color="#fff" />
       </Animated.View>
     </View>
-  )
-}
+  );
+};
 
 // 🔹 Animated Background Indicator
 const AnimatedBackground = ({ state }) => {
-  const translateX = React.useRef(new Animated.Value(0)).current
-  const scaleX = React.useRef(new Animated.Value(1)).current
+  const translateX = React.useRef(new Animated.Value(0)).current;
+  const scaleX = React.useRef(new Animated.Value(1)).current;
 
   React.useEffect(() => {
-    const basePosition = paddingHorizontal
-    const targetPosition = basePosition + state.index * tabSpacing + tabSpacing / 2 - iconWidth / 2
-    const backgroundMaxScale = Math.min((tabSpacing / iconWidth) * 0.9, 1.15)
+    const basePosition = paddingHorizontal;
+    const targetPosition = basePosition + state.index * tabSpacing + tabSpacing / 2 - iconWidth / 2;
+    const backgroundMaxScale = Math.min((tabSpacing / iconWidth) * 0.9, 1.15);
 
     Animated.parallel([
       Animated.spring(translateX, {
@@ -75,8 +76,8 @@ const AnimatedBackground = ({ state }) => {
           useNativeDriver: true,
         }),
       ]),
-    ]).start()
-  }, [state.index])
+    ]).start();
+  }, [state.index]);
 
   return (
     <Animated.View
@@ -96,20 +97,48 @@ const AnimatedBackground = ({ state }) => {
         elevation: 3,
       }}
     />
-  )
-}
+  );
+};
 
-// 🔹 Custom TabBar UI
+// 🔹 Custom TabBar UI with dynamic hide for Profile
 const CustomTabBar = ({ state, descriptors, navigation }) => {
+  const currentRouteName = state.routes[state.index].name;
+
+  // Animated values for hide/show
+  const translateY = React.useRef(new Animated.Value(0)).current;
+  const opacity = React.useRef(new Animated.Value(1)).current;
+  const scale = React.useRef(new Animated.Value(1)).current;
+
+  const isHidden = currentRouteName === "Profile"; // hide tab bar on Profile
+
+  React.useEffect(() => {
+    if (isHidden) {
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 100, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 0.8, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [isHidden]);
+
   return (
-    <View
+    <Animated.View
       style={{
         position: "absolute",
         bottom: 25,
         width: "70%",
         marginHorizontal: "15%",
         backgroundColor: "transparent",
+        transform: [{ translateY }, { scale }],
+        opacity,
       }}
+      pointerEvents={isHidden ? "none" : "auto"}
     >
       <View
         style={{
@@ -130,11 +159,10 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 
         <View style={{ flexDirection: "row", height: "100%", alignItems: "center", justifyContent: "space-evenly" }}>
           {state.routes.map((route, index) => {
-            const isFocused = state.index === index
-
+            const isFocused = state.index === index;
             const onPress = () => {
-              if (!isFocused) navigation.navigate(route.name)
-            }
+              if (!isFocused) navigation.navigate(route.name);
+            };
 
             const icons = {
               Home: { comp: Ionicons, name: "home-outline" },
@@ -142,7 +170,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
               "AI Search": { comp: MaterialCommunityIcons, name: "dog" },
               Community: { comp: Ionicons, name: "people-outline" },
               Profile: { comp: Ionicons, name: "person" },
-            }
+            };
 
             return (
               <View
@@ -157,26 +185,23 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                   iconSize={20}
                 />
               </View>
-            )
+            );
           })}
         </View>
       </View>
-    </View>
-  )
-}
+    </Animated.View>
+  );
+};
 
-// 🔹 Main Bottom Navigation (UI Only for now)
+// 🔹 Main Bottom Navigation
 export default function BottomNav() {
   return (
-    <Tab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
+    <Tab.Navigator tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Map" component={HomeScreen} />
       <Tab.Screen name="AI Search" component={HomeScreen} />
       <Tab.Screen name="Community" component={HomeScreen} />
-      <Tab.Screen name="Profile" component={HomeScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
-  )
+  );
 }
