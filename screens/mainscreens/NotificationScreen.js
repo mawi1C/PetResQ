@@ -51,14 +51,14 @@ export default function NotificationScreen() {
         {/* Back button */}
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={tw`absolute left-4 w-10 h-10 rounded-full bg-gray-100 items-center justify-center mt-6`}
+          style={tw`absolute left-4 w-8 h-8 rounded-full bg-gray-100 items-center justify-center mt-6`}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={22} color="#313131ff" />
+          <Ionicons name="chevron-back" size={20} color="#313131ff" />
         </TouchableOpacity>
 
         {/* Centered title */}
-        <CustomText style={tw`text-gray-800`} weight="Medium" size="4.5">
+        <CustomText style={tw`text-gray-800`} weight="Medium" size="sm">
           Notifications
         </CustomText>
       </View>
@@ -82,12 +82,12 @@ export default function NotificationScreen() {
           >
             <Ionicons
               name="notifications"
-              size={20}
+              size={18}
               color="#FAA617"
               style={tw`mr-3`}
             />
             <View style={tw`flex-1`}>
-              <CustomText style={tw`text-gray-800`} size="md" weight="Medium">
+              <CustomText style={tw`text-gray-800`} size="xs" weight="Medium">
                 {item.title}
               </CustomText>
               <CustomText style={tw`text-gray-600 text-xs leading-5`}>

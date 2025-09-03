@@ -20,16 +20,17 @@ import ErrorModal from "../../components/CustomModal";
 import { Ionicons } from "@expo/vector-icons";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, onSnapshot } from "firebase/firestore";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from 'expo-image-picker';
-import { registerPet } from "../../utils/PetService"; // adjust path
-
+import { registerPet } from "../../utils/PetService";
 
 export default function HomeScreen() {
   const [firstName, setFirstName] = useState("Friend");
   const [greeting, setGreeting] = useState("");
   const [greetingDesc, setGreetingDesc] = useState("");
+  const [userPets, setUserPets] = useState([]); // Added state for user pets
+  const [loadingPets, setLoadingPets] = useState(true); // Loading state for pets
   const navigation = useNavigation();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -67,16 +68,17 @@ export default function HomeScreen() {
     behavior: "",
     specialNeeds: "",
     gender: "",
-    image: null, // Added image field
+    image: null,
   });
 
   // Validation errors state
   const [validationErrors, setValidationErrors] = useState({});
 
-  // 🔹 Modal state
+  // Modal state
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState("error");
+  const [reportTypeModalVisible, setReportTypeModalVisible] = useState(false);
 
   const showModal = (msg, type = "error") => {
     setModalMessage(msg);
@@ -102,7 +104,7 @@ export default function HomeScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(-20)).current;
   const descriptions = [
-    "Let's help pets find home",
+    "Let's help reunite pets with their families",
     "Together, let's reunite pets & families",
     "Caring for pets, caring for families",
     "Every pet deserves a loving home",
@@ -129,15 +131,49 @@ export default function HomeScreen() {
     fetchUserName();
   }, []);
 
+  // Fetch user pets from Firestore
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) {
+      setLoadingPets(false);
+      return;
+    }
+
+    const petsQuery = query(
+      collection(db, "pets"),
+      where("ownerId", "==", user.uid)
+    );
+
+    const unsubscribe = onSnapshot(petsQuery, 
+      (querySnapshot) => {
+        const pets = [];
+        querySnapshot.forEach((doc) => {
+          pets.push({
+            id: doc.id,
+            ...doc.data(),
+          });
+        });
+        setUserPets(pets);
+        setLoadingPets(false);
+      },
+      (error) => {
+        console.error("Error fetching pets:", error);
+        setLoadingPets(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   // Greeting based on time
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) {
-      setGreeting("Good Morning");
+      setGreeting("Good morning");
     } else if (hour >= 12 && hour < 18) {
-      setGreeting("Good Afternoon");
+      setGreeting("Good afternoon");
     } else {
-      setGreeting("Good Evening");
+      setGreeting("Good evening");
     }
   }, []);
 
@@ -270,9 +306,9 @@ export default function HomeScreen() {
       return;
     }
 
-    if (isSaving) return; // Prevent multiple clicks
+    if (isSaving) return;
 
-    setIsSaving(true); // Start loading
+    setIsSaving(true);
 
     try {
       const savedPet = await registerPet(petData);
@@ -301,9 +337,30 @@ export default function HomeScreen() {
       console.error("Failed to register pet:", error);
       showModal(error.message || "Failed to register pet", "error");
     } finally {
-      setIsSaving(false); // Stop loading
+      setIsSaving(false);
     }
   };
+
+  // Render pet card component
+  const renderPetCard = (pet) => (
+    <View key={pet.id} style={tw`w-42`}>
+      <View style={tw`bg-gray-800 rounded-2xl p-4 flex-row items-center mr-4`}>
+        <Image
+          source={{ uri: pet.photoUrl }}
+          style={tw`w-12 h-12 rounded-full mr-3`}
+          resizeMode="cover"
+        />
+        <View style={tw`flex-1`}>
+          <CustomText size="xs" color="#9ca3af" style={tw`mb-1`}>
+            Your {pet.species?.toLowerCase()}
+          </CustomText>
+          <CustomText size="sm" weight="SemiBold" color="white">
+            {pet.petname}
+          </CustomText>
+        </View>
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={tw`flex-1 bg-white`}>
@@ -315,8 +372,8 @@ export default function HomeScreen() {
         ]}
       >
         <View style={tw`mt-3`}>
-          <CustomText style={tw`text-gray-800`} size="4.5" weight="Medium">
-            {greeting}, {firstName} 👋
+          <CustomText style={tw`text-gray-800`} size="base" weight="Medium">
+            {greeting} {firstName},
           </CustomText>
           <Animated.View
             style={{
@@ -324,7 +381,7 @@ export default function HomeScreen() {
               transform: [{ translateX: slideAnim }],
             }}
           >
-            <CustomText style={tw`text-sm text-gray-600`}>
+            <CustomText style={tw`text-xs text-gray-600`}>
               {greetingDesc}
             </CustomText>
           </Animated.View>
@@ -335,32 +392,204 @@ export default function HomeScreen() {
           activeOpacity={0.7}
           onPress={() => navigation.navigate("Notifications")}
         >
-          <Ionicons name="notifications" size={20} color="#313131ff" />
+          <Ionicons name="notifications" size={18} color="#313131ff" />
         </TouchableOpacity>
       </View>
 
       {/* MAIN CONTENT */}
-      <View style={tw`flex-1 justify-center items-center`}>
-        <CustomText style={tw`text-base text-gray-600 mt-2`}>
-          Welcome to your app!
-        </CustomText>
+      <ScrollView style={tw`flex-1 px-4`} showsVerticalScrollIndicator={false}>
+        {/* User Pets Section */}
+        {/* Pet Section - Dynamic Layout Based on User Pets */}
+        {loadingPets ? (
+          <View style={tw`mt-6`}>
+            <CustomText size="xs" color="#6b7280" style={tw`mb-3`}>
+              Loading your pets...
+            </CustomText>
+          </View>
+        ) : userPets.length > 0 ? (
+          // Layout when user HAS pets: Pet card(s) on left, "Add another" on right
+          <View style={tw`flex-row gap-3 mt-6 items-center`}>
+            {/* Pet Cards - Horizontal Scroll */}
+            <View style={tw`flex-1`}>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={tw`pr-3`}
+              >
+                {userPets.map(renderPetCard)}
+              </ScrollView>
+            </View>
 
-        <TouchableOpacity
-          onPress={() => setModalVisible(true)}
-          style={tw`mt-6 flex-row items-center bg-blue-500 px-4 py-2 rounded-lg`}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name="paw-outline"
-            size={20}
-            color="white"
-            style={tw`mr-2`}
-          />
-          <CustomText weight="Medium" color="white">
-            Register a Pet
+            {/* Add Another Pet Card */}
+            <TouchableOpacity
+              onPress={() => setModalVisible(true)}
+              style={tw`w-21 bg-white border border-orange-200 rounded-2xl shadow-sm p-4`}
+              activeOpacity={0.8}
+            >
+              <View style={tw`flex-row items-center`}>
+                <View style={tw`w-12 h-12 bg-gray-50 rounded-full items-center justify-center mr-3`}>
+                  <Ionicons name="add" size={20} color="#6e6e6eff" />
+                </View>
+              </View>
+            </TouchableOpacity>
+
+
+          </View>
+        ) : (
+          // Layout when user has NO pets: Register button on left, info text on right
+          <View style={tw`flex-row gap-3 mt-6 items-center`}>
+            {/* Register Your Pet Card */}
+            <TouchableOpacity
+              onPress={() => setModalVisible(true)}
+              style={tw`flex-1 p-4 bg-white border border-orange-200 rounded-2xl shadow-sm`}
+              activeOpacity={0.8}
+            >
+              <View style={tw`flex-row items-center justify-center`}>
+                <View style={tw`w-10 h-10 bg-gray-50 rounded-full items-center justify-center mr-3`}>
+                  <Ionicons name="paw" size={18} color="#6e6e6eff" />
+                </View>
+                <View>
+                  <CustomText weight="Medium" size="xs" color="#565656ff">
+                    Register your
+                  </CustomText>
+                  <CustomText weight="Medium" size="sm" color="#1f2937">
+                    Pet
+                  </CustomText>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* Info Text Card */}
+            <View style={tw`flex-1 p-4 rounded-2xl`}>
+              <CustomText weight="Medium" size="xs" color="#1f2937" style={tw`mb-1`}>
+                Do you have pets?
+              </CustomText>
+              <CustomText size="xs" color="#6b7280">
+                Register your lovely pet
+              </CustomText>
+            </View>
+          </View>
+        )}
+
+        {/* Quick Actions */}
+        <View style={tw`mt-6`}>
+          <CustomText weight="SemiBold" size="sm" color="#1f2937" style={tw`mb-4`}>
+            Quick Actions
           </CustomText>
-        </TouchableOpacity>
-      </View>
+          
+          <View style={tw`flex-row gap-4`}>
+            {/* Lost or found a pet card */}
+            <TouchableOpacity 
+              style={tw`flex-1 p-4 bg-white rounded-2xl border border-gray-200`}
+              activeOpacity={0.8}
+              onPress={() => setReportTypeModalVisible(true)}   // 👈 add this
+            >
+              <View style={tw`w-10 h-10 bg-blue-500 rounded-full items-center justify-center mb-2`}>
+                <Ionicons name="search" size={16} color="white" />
+              </View>
+              <CustomText weight="Medium" size="sm" color="#1f2937" style={tw`mb-2`}>
+                Lost or found a pet?
+              </CustomText>
+              <CustomText size="2.5" color="#6b7280">
+                Report now and share to community
+              </CustomText>
+            </TouchableOpacity>
+
+            {/* Community card */}
+            <TouchableOpacity 
+              style={tw`flex-1 p-4 bg-white rounded-2xl border border-gray-200`}
+              activeOpacity={0.8}
+            >
+              <View style={tw`w-10 h-10 bg-green-500 rounded-full items-center justify-center mb-2`}>
+                <Ionicons name="people" size={16} color="white" />
+              </View>
+              <CustomText weight="Medium" size="sm" color="#1f2937" style={tw`mb-2`}>
+                Community
+              </CustomText>
+              <CustomText size="2.5" color="#6b7280">
+                Join and help other's reunite to their pet
+              </CustomText>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Need help finding your pet */}
+        <View style={tw`mt-6 p-6 bg-gray-50 rounded-2xl`}>
+          <CustomText weight="Medium" size="sm" color="#1f2937" style={tw`mb-1`}>
+            Need help finding your pet?
+          </CustomText>
+          <CustomText size="xs" color="#6b7280" style={tw`mb-4`}>
+            AI guidance, just for you.
+          </CustomText>
+          
+          <TouchableOpacity
+            style={tw`bg-purple-600 py-3 px-4 rounded-xl flex-row items-center justify-center`}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="flash" size={16} color="white" style={tw`mr-2`} />
+            <CustomText weight="Medium" size="3.3" color="white">
+              Start AI Search
+            </CustomText>
+          </TouchableOpacity>
+        </View>
+
+        {/* Recent Activity */}
+        <View style={tw`mt-6 mb-26`}>
+          <View style={tw`flex-row items-center justify-between mb-4`}>
+            <CustomText weight="SemiBold" size="sm" color="#1f2937">
+              Recent Activity
+            </CustomText>
+            <TouchableOpacity>
+              <CustomText size="xs" color="#6b7280">
+                View all
+              </CustomText>
+            </TouchableOpacity>
+          </View>
+
+          {/* Activity Items */}
+          <View style={tw`gap-3`}>
+            {/* Sightings */}
+            <TouchableOpacity style={tw`p-4 bg-white border border-gray-200 rounded-xl flex-row items-start`}>
+              <View style={tw`w-5 h-5 items-center justify-center mr-3`}>
+                <Ionicons name="eye" size={18} color="#f97316" />
+              </View>
+              <View style={tw`flex-1`}>
+                <CustomText weight="Medium" size="xs" color="#1f2937" style={tw`mb-0.5`}>
+                  Sightings
+                </CustomText>
+                <CustomText size="xs" color="#6b7280">
+                  You report a sighting of a pet named Mixie
+                </CustomText>
+                <TouchableOpacity style={tw`mt-1`}>
+                  <CustomText size="2.7" color="#f97316">
+                    View details
+                  </CustomText>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+
+            {/* AI Analysis */}
+            <TouchableOpacity style={tw`p-4 bg-white border border-gray-200 rounded-xl flex-row items-start`}>
+              <View style={tw`w-5 h-5 items-center justify-center mr-3`}>
+                <Ionicons name="flash" size={18} color="#7c3aed" />
+              </View>
+              <View style={tw`flex-1`}>
+                <CustomText weight="Medium" size="xs" color="#1f2937" style={tw`mb-0.5`}>
+                  AI Analysis
+                </CustomText>
+                <CustomText size="xs" color="#6b7280">
+                  You started AI search of your pet Mixie
+                </CustomText>
+                <TouchableOpacity style={tw`mt-1`}>
+                  <CustomText size="2.7" color="#7c3aed">
+                    View details
+                  </CustomText>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
 
       {/* ==== PET REGISTRATION MODAL ==== */}
       <Modal animationType="slide" transparent={true} visible={modalVisible}>
@@ -373,16 +602,16 @@ export default function HomeScreen() {
             <View style={tw`flex-1`}>
               {/* Header */}
               <View
-                style={tw`flex-row items-center justify-between p-4 border-b border-gray-200`}
+                style={tw`flex-row items-center justify-between p-4`}
               >
-                <CustomText size="lg" weight="Medium">
+                <CustomText size="base" weight="Medium">
                   Register a Pet
                 </CustomText>
                 <TouchableOpacity
                   onPress={() => setModalVisible(false)}
-                  style={tw`p-2 rounded-full bg-gray-100`}
+                  style={tw`p-2 rounded-full bg-gray-50`}
                 >
-                  <Ionicons name="close" size={22} color="black" />
+                  <Ionicons name="close" size={22} color="black"/>
                 </TouchableOpacity>
               </View>
 
@@ -406,9 +635,9 @@ export default function HomeScreen() {
                       />
                       <TouchableOpacity
                         onPress={removeImage}
-                        style={tw`absolute -top-2 -right-2 bg-red-500 rounded-full p-1`}
+                        style={tw`absolute -top-2 -right-2 bg-white rounded-full p-1`}
                       >
-                        <Ionicons name="close" size={16} color="white" />
+                        <Ionicons name="close" size={16} color="red" />
                       </TouchableOpacity>
                     </View>
                   ) : (
@@ -429,6 +658,7 @@ export default function HomeScreen() {
                     </CustomText>
                   )}
                 </View>
+
                 {/* ========== PET INFORMATION SECTION ========== */}
                 <CustomText
                   size="sm"
@@ -478,7 +708,7 @@ export default function HomeScreen() {
                         ]}
                       >
                         <CustomText
-                          size="sm"
+                          size="xs"
                           weight={
                             petData.species === option ? "SemiBold" : "Medium"
                           }
@@ -514,7 +744,7 @@ export default function HomeScreen() {
                     disabled={!petData.species}
                   >
                     <CustomText
-                      size="sm"
+                      size="xs"
                       color={petData.breed ? "#1f2937" : "#9ca3af"}
                       weight={petData.breed ? "Medium" : "Regular"}
                     >
@@ -566,7 +796,7 @@ export default function HomeScreen() {
                         ]}
                       >
                         <CustomText
-                          size="sm"
+                          size="xs"
                           weight={petData.gender === option ? "SemiBold" : "Medium"}
                           color={petData.gender === option ? "#2A80FD" : "#6b7280"}
                         >
@@ -787,14 +1017,14 @@ export default function HomeScreen() {
                   onPress={handleSavePet}
                   style={[tw`bg-blue-500 p-4 rounded-2xl items-center`, isSaving && tw`opacity-50`]}
                   activeOpacity={0.85}
-                  disabled={isSaving} // Disable button while saving
+                  disabled={isSaving}
                 >
                   {isSaving ? (
-                    <CustomText weight="Medium" color="white">
+                    <CustomText weight="Medium" color="white" size="sm">
                       Saving...
                     </CustomText>
                   ) : (
-                    <CustomText weight="Medium" color="white">
+                    <CustomText weight="Medium" color="white" size="sm">
                       Save Pet
                     </CustomText>
                   )}
@@ -832,7 +1062,7 @@ export default function HomeScreen() {
             <View
               style={tw`flex-row items-center justify-between p-4`}
             >
-              <CustomText size="lg" weight="Medium">
+              <CustomText size="sm" weight="Medium">
                 Select Breed
               </CustomText>
               <TouchableOpacity
@@ -883,7 +1113,7 @@ export default function HomeScreen() {
               {showCustomBreedInput ? (
                 // Custom Breed Input
                 <View style={tw`mb-6`}>
-                  <CustomText size="sm" weight="Medium" style={tw`mb-3`}>
+                  <CustomText size="xs" weight="Medium" style={tw`mb-3`}>
                     Enter custom breed:
                   </CustomText>
                   <CustomInput
@@ -901,7 +1131,7 @@ export default function HomeScreen() {
                       }}
                       style={tw`flex-1 py-3 rounded-xl border border-gray-300 items-center`}
                     >
-                      <CustomText size="sm" weight="Medium">
+                      <CustomText size="xs" weight="Medium">
                         Cancel
                       </CustomText>
                     </TouchableOpacity>
@@ -915,7 +1145,7 @@ export default function HomeScreen() {
                       ]}
                       disabled={!customBreed.trim()}
                     >
-                      <CustomText size="sm" weight="Medium" color="white">
+                      <CustomText size="xs" weight="Medium" color="white">
                         Add Breed
                       </CustomText>
                     </TouchableOpacity>
@@ -939,7 +1169,7 @@ export default function HomeScreen() {
                       ]}
                     >
                       <CustomText
-                        size="sm"
+                        size="xs"
                         weight={petData.breed === breed ? "SemiBold" : "Medium"}
                         color={petData.breed === breed ? "#2A80FD" : "#374151"}
                       >
@@ -955,7 +1185,7 @@ export default function HomeScreen() {
                       style={tw`p-4 mb-3 rounded-xl border border-dashed border-gray-300 items-center`}
                     >
                       <Ionicons name="add-circle-outline" size={20} color="#6b7280" style={tw`mr-2`} />
-                      <CustomText size="sm" color="#6b7280">
+                      <CustomText size="xs" color="#6b7280">
                         Add "{searchQuery}" as custom breed
                       </CustomText>
                     </TouchableOpacity>
@@ -989,13 +1219,63 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* 🔹 Error Modal */}
+      {/* Error Modal */}
       <ErrorModal
         visible={errorModalVisible}
         onClose={() => setErrorModalVisible(false)}
         description={modalMessage}
         type={modalType}
       />
+
+      {/* ==== LOST/FOUND REPORT MODAL ==== */}
+      <ErrorModal
+        visible={reportTypeModalVisible}
+        onClose={() => setReportTypeModalVisible(false)}
+        description="What type of report do you want to make?"
+        type="info"
+        customButtons={
+          <>
+            {/* Row with Lost & Found */}
+            <View style={tw`flex-row justify-between mb-4`}>
+              {/* Lost Pet Button */}
+              <TouchableOpacity
+                style={tw`flex-1 bg-red-500 py-3 rounded-xl mr-2`}
+                onPress={() => {
+                  setReportTypeModalVisible(false);
+                  navigation.navigate("ReportScreen", { reportType: "lost" });
+                }}
+              >
+                <CustomText color="white" weight="Medium" size="xs" style={tw`text-center`}>
+                  Lost pet
+                </CustomText>
+              </TouchableOpacity>
+
+              {/* Found Pet Button */}
+              <TouchableOpacity
+                style={tw`flex-1 bg-green-500 py-3 rounded-xl ml-2`}
+                onPress={() => {
+                  setReportTypeModalVisible(false);
+                  navigation.navigate("ReportScreen", { reportType: "found" });
+                }}
+              >
+                <CustomText color="white" weight="Medium" size="xs" style={tw`text-center`}>
+                  Found pet
+                </CustomText>
+              </TouchableOpacity>
+            </View>
+
+            {/* Cancel centered */}
+            <TouchableOpacity
+              onPress={() => setReportTypeModalVisible(false)}
+            >
+              <CustomText size="xs" color="#6b7280" style={tw`text-center`}>
+                Cancel
+              </CustomText>
+            </TouchableOpacity>
+          </>
+        }
+      />
+
     </SafeAreaView>
   );
 }

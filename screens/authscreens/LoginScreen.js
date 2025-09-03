@@ -187,10 +187,10 @@ export default function LoginScreen() {
           { transform: [{ translateY: shift }] },
         ]}
       >
-        <CustomText weight="Medium" size="2xl" style={tw`text-left`}>
+        <CustomText weight="Medium" size="xl" style={tw`text-left`}>
           Welcome back hero!
         </CustomText>
-        <CustomText size="sm" style={tw`mb-8 text-left text-gray-500`}>
+        <CustomText size="xs" style={tw`mb-8 text-left text-gray-500`}>
           Log in to continue and help us make a difference!
         </CustomText>
 
@@ -206,7 +206,7 @@ export default function LoginScreen() {
             keyboardType="email-address"
             editable={!loading}
             autoComplete="email"
-            iconName="person"
+            iconName="person-outline"
           />
         </View>
 
@@ -221,7 +221,7 @@ export default function LoginScreen() {
             editable={!loading}
             autoComplete="password"
             isPassword={true}
-            iconName="lock-closed"
+            iconName="lock-closed-outline"
           />
         </View>
 
@@ -241,11 +241,11 @@ export default function LoginScreen() {
                 <Ionicons name="checkmark" size={14} color="white" />
               )}
             </View>
-            <CustomText size="sm">Remember me</CustomText>
+            <CustomText size="xs">Remember me</CustomText>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handleForgotPassword} activeOpacity={0.7}>
-            <CustomText style={tw`text-blue-500 text-sm`}>
+            <CustomText style={tw`text-blue-500 text-xs`}>
               Forgot Password?
             </CustomText>
           </TouchableOpacity>
@@ -263,7 +263,7 @@ export default function LoginScreen() {
           <CustomText
             weight="Medium"
             color="white"
-            style={tw`text-center text-[16px]`}
+            style={tw`text-center text-[14px]`}
           >
             {loading ? "Logging In..." : "Log In"}
           </CustomText>
@@ -276,9 +276,9 @@ export default function LoginScreen() {
           disabled={loading}
           activeOpacity={0.7}
         >
-          <CustomText style={tw`text-center text-sm`}>
+          <CustomText style={tw`text-center text-xs`}>
             Don't have an account?{" "}
-            <CustomText weight="Medium" style={tw`text-sm text-blue-500`}>
+            <CustomText weight="Medium" style={tw`text-xs text-blue-500`}>
               Sign up
             </CustomText>
           </CustomText>

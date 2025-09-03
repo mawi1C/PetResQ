@@ -284,12 +284,12 @@ export default function RegisterScreen() {
         </View>
 
         {/* Headings */}
-        <CustomText weight="Medium" size="2xl" style={tw`mt-2`}>
+        <CustomText weight="Medium" size="xl" style={tw`mt-2`}>
           {step === 1 && "Let’s get started!"}
           {step === 2 && "Almost there!"}
           {step === 3 && "Secure your account!"}
         </CustomText>
-        <CustomText size="sm" style={tw`mb-8 text-gray-500`}>
+        <CustomText size="xs" style={tw`mb-8 text-gray-500`}>
           {step === 1 && "Enter your basic details to begin your journey."}
           {step === 2 && "Provide your contact and location info."}
           {step === 3 && "Set up a strong password to protect your account."}
@@ -305,7 +305,7 @@ export default function RegisterScreen() {
               onChangeText={(t) => handleChange("firstName", t)}
               error={validationErrors.firstName}
               editable={!loading}
-              iconName="person"
+              iconName="person-outline"
             />
             <View style={tw`mt-4`}>
               <CustomInput
@@ -315,7 +315,7 @@ export default function RegisterScreen() {
                 onChangeText={(t) => handleChange("lastName", t)}
                 error={validationErrors.lastName}
                 editable={!loading}
-                iconName="person"
+                iconName="person-outline"
               />
             </View>
             <View style={tw`mt-4 mb-4`}>
@@ -328,7 +328,7 @@ export default function RegisterScreen() {
                 autoCapitalize="none"
                 keyboardType="email-address"
                 editable={!loading}
-                iconName="mail"
+                iconName="mail-outline"
               />
             </View>
           </>
@@ -345,7 +345,7 @@ export default function RegisterScreen() {
               error={validationErrors.phone}
               keyboardType="phone-pad"
               editable={!loading}
-              iconName="call"
+              iconName="call-outline"
             />
             <View style={tw`mt-4 mb-4`}>
               <CustomInput
@@ -355,7 +355,7 @@ export default function RegisterScreen() {
                 onChangeText={(t) => handleChange("location", t)}
                 error={validationErrors.location}
                 editable={!loading}
-                iconName="location"
+                iconName="location-outline"
               />
             </View>
           </>
@@ -372,7 +372,7 @@ export default function RegisterScreen() {
               error={validationErrors.password}
               editable={!loading}
               isPassword={true}
-              iconName="lock-closed"
+              iconName="lock-closed-outline"
             />
 
             {/* 🔹 Password Strength Indicator */}
@@ -393,7 +393,7 @@ export default function RegisterScreen() {
                   />
                 </View>
                 <CustomText
-                  size="sm"
+                  size="xs"
                   weight="Medium"
                   style={tw`mt-1 text-${
                     getPasswordStrength(formData.password).textColor
@@ -413,7 +413,7 @@ export default function RegisterScreen() {
                 error={validationErrors.confirmPassword}
                 editable={!loading}
                 isPassword={true}
-                iconName="lock-closed"
+                iconName="lock-closed-outline"
               />
             </View>
           </>
@@ -433,7 +433,7 @@ export default function RegisterScreen() {
               <CustomText
                 weight="Medium"
                 color="white"
-                style={tw`text-center text-[16px]`}
+                style={tw`text-center text-[14px]`}
               >
                 Next
               </CustomText>
@@ -461,7 +461,7 @@ export default function RegisterScreen() {
                 <CustomText
                   weight="Medium"
                   color="white"
-                  style={tw`text-center text-[16px]`}
+                  style={tw`text-center text-[14px]`}
                 >
                   {step < 3 ? "Next" : "Sign Up"}
                 </CustomText>
@@ -474,9 +474,9 @@ export default function RegisterScreen() {
           onPress={() => navigation.navigate("Login")}
           style={tw`mt-5`}
         >
-          <CustomText style={tw`text-center text-sm`}>
+          <CustomText style={tw`text-center text-xs`}>
             Already have an account?{" "}
-            <CustomText weight="Medium" style={tw`text-sm text-blue-500`}>
+            <CustomText weight="Medium" style={tw`text-xs text-blue-500`}>
               Log in
             </CustomText>
           </CustomText>

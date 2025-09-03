@@ -9,8 +9,9 @@ export default function ErrorModal({
   onClose,
   description,
   type = "error",
-  showResend = false,   // 🔹 new
-  onResend,             // 🔹 new
+  showResend = false,
+  onResend,
+  customButtons = null,   // 🔹 allow injecting custom buttons
 }) {
   const scaleAnim = useRef(new Animated.Value(0)).current
 
@@ -56,40 +57,54 @@ export default function ErrorModal({
       <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-30`}>
         <Animated.View
           style={[
-            tw`bg-white p-4 rounded-lg w-74`,
+            tw`bg-white p-4 rounded-lg w-70`,
             { transform: [{ scale: scaleAnim }] },
           ]}
         >
           {/* Icon */}
           <View style={tw`flex-row items-center justify-center mb-2`}>
-            <Ionicons name={name} size={50} color={color} />
+            <Ionicons name={name} size={40} color={color} />
           </View>
 
           {/* Description */}
-          <CustomText style={tw`text-center text-gray-600 text-sm mb-4`}>
-            {description}
-          </CustomText>
-
-          {/* Main Button */}
-          <TouchableOpacity
-            style={tw`bg-blue-600 py-2 rounded-lg mb-2`}
-            onPress={onClose}
-          >
-            <CustomText weight="Medium" style={tw`text-white text-center text-sm py-1.5`}>
-              OK
+          {description ? (
+            <CustomText style={tw`text-center text-gray-600 text-xs mb-4`}>
+              {description}
             </CustomText>
-          </TouchableOpacity>
+          ) : null}
 
-          {/* 🔹 Conditionally render Resend button */}
-          {showResend && (
-            <TouchableOpacity
-              style={tw`border border-blue-600 py-2 rounded-lg`}
-              onPress={onResend}
-            >
-              <CustomText style={tw`text-blue-600 text-center text-sm font-semibold py-1.5`}>
-                Resend Verification Email
-              </CustomText>
-            </TouchableOpacity>
+          {/* 🔹 If custom buttons are provided, render them */}
+          {customButtons ? (
+            customButtons
+          ) : (
+            <>
+              {/* Default OK button */}
+              <TouchableOpacity
+                style={tw`bg-blue-600 py-2 rounded-lg mb-2`}
+                onPress={onClose}
+              >
+                <CustomText
+                  weight="Medium"
+                  style={tw`text-white text-center text-xs py-1.5`}
+                >
+                  OK
+                </CustomText>
+              </TouchableOpacity>
+
+              {/* Resend button if applicable */}
+              {showResend && (
+                <TouchableOpacity
+                  style={tw`border border-blue-600 py-2 rounded-lg`}
+                  onPress={onResend}
+                >
+                  <CustomText
+                    style={tw`text-blue-600 text-center text-sm font-semibold py-1.5`}
+                  >
+                    Resend Verification Email
+                  </CustomText>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </Animated.View>
       </View>

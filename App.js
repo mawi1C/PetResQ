@@ -12,10 +12,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import BottomNav from "./components/BottomNav"
 
 // Screens
+import OnboardingScreen from "./screens/OnBoardingScreen"
 import LoginScreen from "./screens/authscreens/LoginScreen"
 import RegisterScreen from "./screens/authscreens/RegisterScreen"
 import NotificationScreen from "./screens/mainscreens/NotificationScreen"
-import OnboardingScreen from "./screens/OnBoardingScreen"
+import ReportScreen from "./screens/mainscreens/ReportScreen"
 
 const Stack = createNativeStackNavigator()
 
@@ -84,11 +85,16 @@ export default function App() {
               component={BottomNav}
               options={{ animation: "fade_from_bottom" }}
             />
-
-            {/* 🔔 Add this here */}
+            
             <Stack.Screen
               name="Notifications"
               component={NotificationScreen}
+              options={{ animation: "slide_from_right" }}
+            />
+
+            <Stack.Screen
+              name="ReportScreen"
+              component={ReportScreen}
               options={{ animation: "slide_from_right" }}
             />
           </>

@@ -148,19 +148,19 @@ export default function ProfileScreen() {
         {/* Back button */}
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={tw`absolute left-4 w-10 h-10 rounded-full bg-gray-100 items-center justify-center mt-6`}
+          style={tw`absolute left-4 w-8 h-8 rounded-full bg-gray-100 items-center justify-center mt-6`}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={22} color="#313131ff" />
+          <Ionicons name="chevron-back" size={20} color="#313131ff" />
         </TouchableOpacity>
 
         {/* Centered title */}
-        <CustomText style={tw`text-gray-800`} weight="Medium" size="4.5">
+        <CustomText style={tw`text-gray-800`} weight="Medium" size="sm">
           Profile
         </CustomText>
       </View>
 
-      <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
+      <ScrollView style={tw`flex-1 pt-4`} showsVerticalScrollIndicator={false}>
         {/* PROFILE SECTION */}
         <View style={tw`px-4 mb-6`}>
           <View style={tw`flex-row items-center mb-4`}>
@@ -173,28 +173,19 @@ export default function ProfileScreen() {
                 />
               ) : (
                 <View
-                  style={tw`w-16 h-16 rounded-full bg-orange-400 items-center justify-center`}
+                  style={tw`w-14 h-14 rounded-full bg-orange-400 items-center justify-center`}
                 >
-                  <CustomText size="xl" weight="SemiBold" color="white">
+                  <CustomText size="base" weight="SemiBold" color="white">
                     {userProfile.fullName.charAt(0)}
                   </CustomText>
                 </View>
               )}
-              {/* Edit icon */}
-              <TouchableOpacity
-                style={tw`absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-1`}
-                onPress={() => {
-                  /* Handle edit profile image */
-                }}
-              >
-                <Ionicons name="pencil" size={12} color="white" />
-              </TouchableOpacity>
             </View>
 
             {/* Profile Info */}
             <View style={tw`flex-1`}>
               <View style={tw`flex-row items-center mb-1`}>
-                <CustomText size="lg" weight="SemiBold" color="#374151">
+                <CustomText size="sm" weight="SemiBold" color="#374151">
                   {userProfile.fullName}
                 </CustomText>
                 <TouchableOpacity
@@ -204,7 +195,7 @@ export default function ProfileScreen() {
                   <Ionicons name="create-outline" size={16} color="#3B82F6" />
                 </TouchableOpacity>
               </View>
-              <CustomText size="sm" color="#6B7280">
+              <CustomText size="xs" color="#6B7280">
                 Pet Owner
               </CustomText>
             </View>
@@ -219,7 +210,7 @@ export default function ProfileScreen() {
                 color="#6B7280"
                 style={tw`mr-3`}
               />
-              <CustomText size="sm" color="#374151">
+              <CustomText size="xs" color="#6c6c6cff">
                 {userProfile.phone}
               </CustomText>
             </View>
@@ -230,16 +221,16 @@ export default function ProfileScreen() {
                 color="#6B7280"
                 style={tw`mr-3`}
               />
-              <CustomText size="sm" color="#374151">
+              <CustomText size="xs" color="#6c6c6cff">
                 {userProfile.email}
               </CustomText>
             </View>
           </View>
 
           {/* Stats */}
-          <View style={tw`flex-row justify-between mb-6`}>
+          <View style={tw`flex-row justify-between mb-0`}>
             <View style={tw`items-center flex-1`}>
-              <CustomText size="2xl" weight="Bold" color="#374151">
+              <CustomText size="lg" weight="Bold" color="#374151">
                 {userProfile.rescuedPets}
               </CustomText>
               <CustomText size="xs" color="#6B7280">
@@ -257,7 +248,7 @@ export default function ProfileScreen() {
                   color="#F59E0B"
                   style={tw`mr-1`}
                 />
-                <CustomText size="2xl" weight="Bold" color="#374151">
+                <CustomText size="lg" weight="Bold" color="#374151">
                   {userProfile.overallRating.toFixed(1)}
                 </CustomText>
               </View>
@@ -282,14 +273,13 @@ export default function ProfileScreen() {
               <View
                 style={[
                   tw`w-10 h-10 rounded-full items-center justify-center mr-4`,
-                  { backgroundColor: item.backgroundColor },
                 ]}
               >
                 <Ionicons name={item.icon} size={20} color={item.iconColor} />
               </View>
 
               <View style={tw`flex-1`}>
-                <CustomText size="sm" weight="Medium" color="#374151">
+                <CustomText size="xs" weight="Medium" color="#374151">
                   {item.title}
                 </CustomText>
               </View>
@@ -312,7 +302,7 @@ export default function ProfileScreen() {
         {/* RECENT ACTIVITY */}
         <View style={tw`px-4 mb-6`}>
           <CustomText
-            size="sm"
+            size="xs"
             weight="SemiBold"
             color="#374151"
             style={tw`mb-4`}
@@ -323,12 +313,12 @@ export default function ProfileScreen() {
           {recentActivities.map((activity) => (
             <View
               key={activity.id}
-              style={tw`bg-gray-50 rounded-2xl p-4 mb-3`}
+              style={tw`bg-white border-2 border-gray-100 rounded-2xl p-4 mb-3`}
             >
               <View style={tw`flex-row items-start`}>
                 <View
                   style={[
-                    tw`w-10 h-10 rounded-full items-center justify-center mr-3`,
+                    tw`w-8 h-8 rounded-full items-center justify-center mr-3 rounded-lg`,
                     { backgroundColor: activity.backgroundColor },
                   ]}
                 >
@@ -341,7 +331,7 @@ export default function ProfileScreen() {
 
                 <View style={tw`flex-1`}>
                   <CustomText
-                    size="sm"
+                    size="xs"
                     weight="Medium"
                     color="#374151"
                     style={tw`mb-1`}

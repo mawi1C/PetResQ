@@ -53,6 +53,7 @@ export default function CustomInput({
           style={[
             tw`flex-1 py-4`,
             {
+              fontSize: 12,
               fontFamily: "Poppins-Regular",
               textAlign: "left",
               textAlignVertical: "center",
