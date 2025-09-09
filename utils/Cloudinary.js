@@ -59,7 +59,7 @@ export const uploadImageToCloudinary = async (imageUri) => {
   formData.append("folder", "petresq")
 
   try {
-    console.log(`[v0] Uploading image: ${fileName}`)
+    console.log(`Uploading image: ${fileName}`)
 
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.TIMEOUT)
@@ -74,8 +74,8 @@ export const uploadImageToCloudinary = async (imageUri) => {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error("[v0] Cloudinary error response:", errorText)
-      console.error("[v0] Response status:", response.status)
+      console.error("Cloudinary error response:", errorText)
+      console.error("Response status:", response.status)
       throw new Error(getErrorMessage(null, response))
     }
 
@@ -85,10 +85,10 @@ export const uploadImageToCloudinary = async (imageUri) => {
       throw new Error("Invalid response from upload service")
     }
 
-    console.log("[v0] Image uploaded successfully:", data.secure_url)
+    console.log("Image uploaded successfully:", data.secure_url)
     return data.secure_url
   } catch (error) {
-    console.error("[v0] Cloudinary upload failed:", error)
+    console.error("Cloudinary upload failed:", error)
 
     if (error.name === "AbortError") {
       throw new Error("Upload timeout. Please check your connection and try again.")

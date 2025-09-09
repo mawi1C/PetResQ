@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback} from "react";
 import {
   SafeAreaView,
   View,
@@ -12,18 +12,29 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Image,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import tw from "twrnc";
 import CustomText from "../../components/CustomText";
 import CustomInput from "../../components/CustomInput";
 import ErrorModal from "../../components/CustomModal";
 import { Ionicons } from "@expo/vector-icons";
-import { signOut } from "firebase/auth";
 import { auth, db } from "../../firebase";
-import { doc, getDoc, collection, query, where, onSnapshot } from "firebase/firestore";
-import { useNavigation } from "@react-navigation/native";
-import * as ImagePicker from 'expo-image-picker';
-import { registerPet } from "../../utils/PetService";
+import {
+  doc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  getDoc,
+  orderBy,
+  limit,
+} from "firebase/firestore";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+import { registerPet, getUserNotifications } from "../../utils/PetService";
 
 export default function HomeScreen() {
   const [firstName, setFirstName] = useState("Friend");
@@ -39,6 +50,112 @@ export default function HomeScreen() {
   const [showCustomBreedInput, setShowCustomBreedInput] = useState(false);
   const [customBreed, setCustomBreed] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+
+  const [hasNewNotification, setHasNewNotification] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkNotifications = async () => {
+        try {
+          const userNotifications = await getUserNotifications();
+          // check if any notification is unread
+          const hasUnread = userNotifications.some((n) => !n.read);
+          setHasNewNotification(hasUnread);
+        } catch (error) {
+          console.error("Error checking notifications:", error);
+        }
+      };
+
+      checkNotifications();
+    }, [])
+  );
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) {
+      setLoadingActivities(false);
+      return;
+    }
+
+    // Fetch user's recent sightings - limit to 2
+    const sightingsQuery = query(
+      collection(db, "sightings"),
+      where("reporterId", "==", user.uid), // This should filter by current user
+      orderBy("createdAt", "desc"),
+      limit(2)
+    );
+
+    const unsubscribeSightings = onSnapshot(
+      sightingsQuery,
+      async (querySnapshot) => {
+        const activities = [];
+
+        for (const docSnap of querySnapshot.docs) {
+          const sightingData = docSnap.data();
+
+          // Get the lost pet details for this sighting
+          let petName = "a pet";
+          try {
+            const lostPetDoc = await getDoc(
+              doc(db, "lostPets", sightingData.lostPetId)
+            );
+            if (lostPetDoc.exists()) {
+              petName = lostPetDoc.data().petname || "a pet";
+            }
+          } catch (error) {
+            console.log("Error fetching pet details:", error);
+          }
+
+          // Format the date as "Sept 7 2025"
+          let formattedDate = "Recently";
+          if (sightingData.createdAt && sightingData.createdAt.seconds) {
+            const date = new Date(sightingData.createdAt.seconds * 1000);
+            formattedDate = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+          }
+
+          activities.push({
+            id: docSnap.id,
+            type: "sighting",
+            title: "Sighting Reported",
+            description: `You reported a sighting of ${petName}`,
+            timestamp: sightingData.createdAt,
+            petName: petName,
+            date: formattedDate,
+          });
+        }
+
+        setRecentActivities(activities);
+        setLoadingActivities(false);
+      },
+      (error) => {
+        console.error("Error fetching activities:", error);
+        setLoadingActivities(false);
+      }
+    );
+
+    return () => {
+      unsubscribeSightings();
+    };
+  }, []);
+
+  // You can also create a helper function for date formatting if you want to use it elsewhere
+  const formatDate = (timestamp) => {
+    if (!timestamp || !timestamp.seconds) return "Recently";
+
+    const date = new Date(timestamp.seconds * 1000);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
 
   // Function to handle breed selection
   const handleBreedSelection = (breed) => {
@@ -90,10 +207,166 @@ export default function HomeScreen() {
   const dogBreeds = [
     "Labrador Retriever",
     "German Shepherd",
-    "Bulldog",
     "Golden Retriever",
+    "Bulldog",
+    "Beagle",
+    "Poodle",
+    "Rottweiler",
+    "Yorkshire Terrier",
+    "Dachshund",
+    "Boxer",
+    "Siberian Husky",
+    "Doberman Pinscher",
+    "Great Dane",
+    "Shih Tzu",
+    "Chihuahua",
+    "Pomeranian",
+    "Australian Shepherd",
+    "Border Collie",
+    "Cocker Spaniel",
+    "Maltese",
+    "French Bulldog",
+    "Boston Terrier",
+    "Pug",
+    "Akita",
+    "Basset Hound",
+    "Saint Bernard",
+    "Bernese Mountain Dog",
+    "Cavalier King Charles Spaniel",
+    "English Springer Spaniel",
+    "Welsh Corgi",
+    "Dalmatian",
+    "Samoyed",
+    "Bullmastiff",
+    "Newfoundland",
+    "Alaskan Malamute",
+    "Irish Setter",
+    "Weimaraner",
+    "Papillon",
+    "Whippet",
+    "Scottish Terrier",
+    "Jack Russell Terrier",
+    "Staffordshire Bull Terrier",
+    "American Pit Bull Terrier",
+    "Havanese",
+    "Shiba Inu",
+    "Lhasa Apso",
+    "Collie",
+    "Chow Chow",
+    "Bloodhound",
+    "Vizsla",
   ];
-  const catBreeds = ["Persian", "Siamese", "Maine Coon", "Bengal"];
+
+  const catBreeds = [
+    "Persian",
+    "Siamese",
+    "Maine Coon",
+    "Bengal",
+    "Ragdoll",
+    "British Shorthair",
+    "Sphynx",
+    "Abyssinian",
+    "Scottish Fold",
+    "Birman",
+    "Russian Blue",
+    "Oriental Shorthair",
+    "Norwegian Forest Cat",
+    "Savannah",
+    "American Shorthair",
+    "Devon Rex",
+    "Exotic Shorthair",
+    "Turkish Angora",
+    "Tonkinese",
+    "Egyptian Mau",
+    "Cornish Rex",
+    "Balinese",
+    "Himalayan",
+    "Japanese Bobtail",
+    "Manx",
+    "Chartreux",
+    "Singapura",
+    "Turkish Van",
+    "Somali",
+    "Burmese",
+    "Ocicat",
+    "Selkirk Rex",
+    "American Curl",
+    "Bombay",
+    "Snowshoe",
+    "Pixie-Bob",
+    "LaPerm",
+    "Korat",
+    "Nebelung",
+    "Colorpoint Shorthair",
+    "Peterbald",
+    "Cymric",
+    "British Longhair",
+    "Havana Brown",
+    "Oriental Longhair",
+    "Serengeti",
+    "Chausie",
+    "Highlander",
+    "Ragamuffin",
+  ];
+
+  const [aiSearchModalVisible, setAiSearchModalVisible] = useState(false);
+  const [selectedPet, setSelectedPet] = useState(null);
+  const [editingPetData, setEditingPetData] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const handleAiSearchPress = () => {
+    if (userPets.length === 0) {
+      showModal("Please register a pet before using AI search", "warning");
+      return;
+    }
+    setAiSearchModalVisible(true);
+  };
+
+  // Function to select a pet for AI analysis
+  const handlePetSelect = (pet) => {
+    setSelectedPet(pet);
+    setEditingPetData({ ...pet }); // Create a copy for editing
+    setIsEditing(false);
+  };
+
+  // Function to handle editing pet data
+  const handleEditPetData = (field, value) => {
+    setEditingPetData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Function to save edited pet data
+  const handleSavePetEdits = async () => {
+    try {
+      const petRef = doc(db, "pets", selectedPet.id);
+      await updateDoc(petRef, editingPetData);
+
+      // Update local state
+      setUserPets((prev) =>
+        prev.map((pet) =>
+          pet.id === selectedPet.id ? { ...pet, ...editingPetData } : pet
+        )
+      );
+
+      setSelectedPet(editingPetData);
+      setIsEditing(false);
+      showModal("Pet details updated successfully!", "success");
+    } catch (error) {
+      console.error("Error updating pet:", error);
+      showModal("Failed to update pet details", "error");
+    }
+  };
+
+  // Function to start AI analysis with selected pet
+  const handleStartAiAnalysis = () => {
+    if (!selectedPet) {
+      showModal("Please select a pet to analyze", "warning");
+      return;
+    }
+
+    // Close modal and navigate to AI analysis screen with pet data
+    setAiSearchModalVisible(false);
+    navigation.navigate("AIPetSearchScreen", { petData: selectedPet });
+  };
 
   // Compute filtered breeds safely
   const filteredBreeds = (
@@ -144,7 +417,8 @@ export default function HomeScreen() {
       where("ownerId", "==", user.uid)
     );
 
-    const unsubscribe = onSnapshot(petsQuery, 
+    const unsubscribe = onSnapshot(
+      petsQuery,
       (querySnapshot) => {
         const pets = [];
         querySnapshot.forEach((doc) => {
@@ -223,9 +497,10 @@ export default function HomeScreen() {
   const pickImage = async () => {
     try {
       // Request permissions
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        showModal('Sorry, we need camera roll permissions to upload images!');
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        showModal("Sorry, we need camera roll permissions to upload images!");
         return;
       }
 
@@ -242,7 +517,7 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.log("Error picking image:", error);
-      showModal('Failed to pick image. Please try again.');
+      showModal("Failed to pick image. Please try again.");
     }
   };
 
@@ -254,39 +529,39 @@ export default function HomeScreen() {
   // Validate pet registration form
   const validatePetInputs = useCallback(() => {
     const errors = {};
-    
+
     if (!petData.petname.trim()) {
       errors.petname = "Please enter your pet's name";
     }
-    
+
     if (!petData.species) {
       errors.species = "Please select a species";
     }
-    
+
     if (!petData.breed) {
       errors.breed = "Please select a breed";
     }
-    
+
     if (!petData.color.trim()) {
       errors.color = "Please enter color/markings";
     }
-    
+
     if (!petData.gender) {
       errors.gender = "Please select a gender";
     }
-    
+
     if (!petData.age) {
       errors.age = "Please select an age group";
     }
-    
+
     if (!petData.size) {
       errors.size = "Please select a size";
     }
-    
+
     if (!petData.health) {
       errors.health = "Please select health status";
     }
-    
+
     if (!petData.behavior) {
       errors.behavior = "Please select behavior";
     }
@@ -354,7 +629,7 @@ export default function HomeScreen() {
           <CustomText size="xs" color="#9ca3af" style={tw`mb-1`}>
             Your {pet.species?.toLowerCase()}
           </CustomText>
-          <CustomText size="sm" weight="SemiBold" color="white">
+          <CustomText size="sm" weight="Medium" color="white">
             {pet.petname}
           </CustomText>
         </View>
@@ -388,16 +663,29 @@ export default function HomeScreen() {
         </View>
 
         <TouchableOpacity
-          style={tw`w-12 h-12 rounded-full bg-gray-100 items-center justify-center mt-3`}
+          style={tw`w-12 h-12 rounded-full bg-gray-100 items-center justify-center mt-3 relative`}
           activeOpacity={0.7}
           onPress={() => navigation.navigate("Notifications")}
         >
           <Ionicons name="notifications" size={18} color="#313131ff" />
+
+          {hasNewNotification && (
+            <View
+              style={tw`absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full`}
+            />
+          )}
         </TouchableOpacity>
       </View>
 
       {/* MAIN CONTENT */}
-      <ScrollView style={tw`flex-1 px-4`} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={tw`flex-1 px-4`}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+        scrollEnabled={true}
+        contentContainerStyle={tw`pb-8`}
+        nestedScrollEnabled={true}
+      >
         {/* User Pets Section */}
         {/* Pet Section - Dynamic Layout Based on User Pets */}
         {loadingPets ? (
@@ -411,10 +699,11 @@ export default function HomeScreen() {
           <View style={tw`flex-row gap-3 mt-6 items-center`}>
             {/* Pet Cards - Horizontal Scroll */}
             <View style={tw`flex-1`}>
-              <ScrollView 
-                horizontal 
+              <ScrollView
+                horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={tw`pr-3`}
+                nestedScrollEnabled={true}
               >
                 {userPets.map(renderPetCard)}
               </ScrollView>
@@ -423,17 +712,18 @@ export default function HomeScreen() {
             {/* Add Another Pet Card */}
             <TouchableOpacity
               onPress={() => setModalVisible(true)}
-              style={tw`w-21 bg-white border border-orange-200 rounded-2xl shadow-sm p-4`}
+              style={tw`w-34 bg-white border border-gray-200 rounded-2xl p-4`}
               activeOpacity={0.8}
             >
               <View style={tw`flex-row items-center`}>
-                <View style={tw`w-12 h-12 bg-gray-50 rounded-full items-center justify-center mr-3`}>
-                  <Ionicons name="add" size={20} color="#6e6e6eff" />
+                <View
+                  style={tw`w-10 h-10 bg-orange-500 rounded-full items-center justify-center mr-3`}
+                >
+                  <Ionicons name="add" size={20} color="#fff" />
                 </View>
+                <CustomText size="xs">Add pet</CustomText>
               </View>
             </TouchableOpacity>
-
-
           </View>
         ) : (
           // Layout when user has NO pets: Register button on left, info text on right
@@ -445,7 +735,9 @@ export default function HomeScreen() {
               activeOpacity={0.8}
             >
               <View style={tw`flex-row items-center justify-center`}>
-                <View style={tw`w-10 h-10 bg-gray-50 rounded-full items-center justify-center mr-3`}>
+                <View
+                  style={tw`w-10 h-10 bg-gray-50 rounded-full items-center justify-center mr-3`}
+                >
                   <Ionicons name="paw" size={18} color="#6e6e6eff" />
                 </View>
                 <View>
@@ -461,7 +753,12 @@ export default function HomeScreen() {
 
             {/* Info Text Card */}
             <View style={tw`flex-1 p-4 rounded-2xl`}>
-              <CustomText weight="Medium" size="xs" color="#1f2937" style={tw`mb-1`}>
+              <CustomText
+                weight="Medium"
+                size="xs"
+                color="#1f2937"
+                style={tw`mb-1`}
+              >
                 Do you have pets?
               </CustomText>
               <CustomText size="xs" color="#6b7280">
@@ -473,21 +770,33 @@ export default function HomeScreen() {
 
         {/* Quick Actions */}
         <View style={tw`mt-6`}>
-          <CustomText weight="SemiBold" size="sm" color="#1f2937" style={tw`mb-4`}>
+          <CustomText
+            weight="SemiBold"
+            size="sm"
+            color="#1f2937"
+            style={tw`mb-4`}
+          >
             Quick Actions
           </CustomText>
-          
+
           <View style={tw`flex-row gap-4`}>
             {/* Lost or found a pet card */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={tw`flex-1 p-4 bg-white rounded-2xl border border-gray-200`}
               activeOpacity={0.8}
-              onPress={() => setReportTypeModalVisible(true)}   // 👈 add this
+              onPress={() => setReportTypeModalVisible(true)}
             >
-              <View style={tw`w-10 h-10 bg-blue-500 rounded-full items-center justify-center mb-2`}>
+              <View
+                style={tw`w-10 h-10 bg-blue-500 rounded-full items-center justify-center mb-2`}
+              >
                 <Ionicons name="search" size={16} color="white" />
               </View>
-              <CustomText weight="Medium" size="sm" color="#1f2937" style={tw`mb-2`}>
+              <CustomText
+                weight="Medium"
+                size="sm"
+                color="#1f2937"
+                style={tw`mb-2`}
+              >
                 Lost or found a pet?
               </CustomText>
               <CustomText size="2.5" color="#6b7280">
@@ -496,35 +805,51 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             {/* Community card */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={tw`flex-1 p-4 bg-white rounded-2xl border border-gray-200`}
               activeOpacity={0.8}
+              onPress={() =>
+                navigation.navigate("MainTabs", { screen: "Community" })
+              }
             >
-              <View style={tw`w-10 h-10 bg-green-500 rounded-full items-center justify-center mb-2`}>
+              <View
+                style={tw`w-10 h-10 bg-green-500 rounded-full items-center justify-center mb-2`}
+              >
                 <Ionicons name="people" size={16} color="white" />
               </View>
-              <CustomText weight="Medium" size="sm" color="#1f2937" style={tw`mb-2`}>
+              <CustomText
+                weight="Medium"
+                size="sm"
+                color="#1f2937"
+                style={tw`mb-2`}
+              >
                 Community
               </CustomText>
               <CustomText size="2.5" color="#6b7280">
-                Join and help other's reunite to their pet
+                Join and help others reunite with their pet
               </CustomText>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Need help finding your pet */}
+        {/* Need help finding your pet section - Update the button */}
         <View style={tw`mt-6 p-6 bg-gray-50 rounded-2xl`}>
-          <CustomText weight="Medium" size="sm" color="#1f2937" style={tw`mb-1`}>
+          <CustomText
+            weight="Medium"
+            size="sm"
+            color="#1f2937"
+            style={tw`mb-1`}
+          >
             Need help finding your pet?
           </CustomText>
           <CustomText size="xs" color="#6b7280" style={tw`mb-4`}>
             AI guidance, just for you.
           </CustomText>
-          
+
           <TouchableOpacity
             style={tw`bg-purple-600 py-3 px-4 rounded-xl flex-row items-center justify-center`}
             activeOpacity={0.8}
+            onPress={handleAiSearchPress}
           >
             <Ionicons name="flash" size={16} color="white" style={tw`mr-2`} />
             <CustomText weight="Medium" size="3.3" color="white">
@@ -533,14 +858,13 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Recent Activity */}
-        <View style={tw`mt-6 mb-26`}>
+        <View style={tw`mt-6 mb-14`}>
           <View style={tw`flex-row items-center justify-between mb-4`}>
             <CustomText weight="SemiBold" size="sm" color="#1f2937">
               Recent Activity
             </CustomText>
-            <TouchableOpacity>
-              <CustomText size="xs" color="#6b7280">
+            <TouchableOpacity style={tw`bg-gray-800 px-4 py-2 rounded-lg`}>
+              <CustomText size="xs" color="#fff">
                 View all
               </CustomText>
             </TouchableOpacity>
@@ -548,385 +872,467 @@ export default function HomeScreen() {
 
           {/* Activity Items */}
           <View style={tw`gap-3`}>
-            {/* Sightings */}
-            <TouchableOpacity style={tw`p-4 bg-white border border-gray-200 rounded-xl flex-row items-start`}>
-              <View style={tw`w-5 h-5 items-center justify-center mr-3`}>
-                <Ionicons name="eye" size={18} color="#f97316" />
-              </View>
-              <View style={tw`flex-1`}>
-                <CustomText weight="Medium" size="xs" color="#1f2937" style={tw`mb-0.5`}>
-                  Sightings
+            {loadingActivities ? (
+              <View
+                style={tw`p-4 bg-white border border-gray-200 rounded-xl items-center`}
+              >
+                <ActivityIndicator size="small" color="#f97316" />
+                <CustomText size="xs" color="#6b7280" style={tw`mt-2`}>
+                  Loading activities...
                 </CustomText>
-                <CustomText size="xs" color="#6b7280">
-                  You report a sighting of a pet named Mixie
-                </CustomText>
-                <TouchableOpacity style={tw`mt-1`}>
-                  <CustomText size="2.7" color="#f97316">
-                    View details
-                  </CustomText>
-                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
+            ) : recentActivities.length === 0 ? (
+              <View
+                style={tw`p-4 bg-white border border-gray-200 rounded-xl items-center`}
+              >
+                <Ionicons name="eye-off-outline" size={24} color="#d1d5db" />
+                <CustomText
+                  size="xs"
+                  color="#6b7280"
+                  style={tw`mt-2 text-center`}
+                >
+                  No recent activities yet
+                </CustomText>
+                <CustomText
+                  size="2.5"
+                  color="#9ca3af"
+                  style={tw`mt-1 text-center`}
+                >
+                  Your sightings will appear here
+                </CustomText>
+              </View>
+            ) : (
+              <>
+                {/* Display only the 2 most recent activities */}
+                {recentActivities.slice(0, 2).map((activity) => (
+                  <TouchableOpacity
+                    key={activity.id}
+                    style={tw`p-4 bg-white border border-gray-200 rounded-xl flex-row items-start`}
+                    onPress={() => {
+                      showModal(
+                        `Sighting details for ${activity.petName}`,
+                        "info"
+                      );
+                    }}
+                  >
+                    <View style={tw`w-5 h-5 items-center justify-center mr-3`}>
+                      <Ionicons
+                        name="eye"
+                        size={18}
+                        color={
+                          activity.type === "sighting" ? "#f97316" : "#7c3aed"
+                        }
+                      />
+                    </View>
+                    <View style={tw`flex-1`}>
+                      <CustomText
+                        weight="Medium"
+                        size="xs"
+                        color="#1f2937"
+                        style={tw`mb-0.5`}
+                      >
+                        {activity.title}
+                      </CustomText>
+                      <CustomText size="xs" color="#6b7280">
+                        {activity.description}
+                      </CustomText>
+                      <CustomText size="2.5" color="#9ca3af" style={tw`mt-1`}>
+                        {activity.date}
+                      </CustomText>
+                    </View>
+                  </TouchableOpacity>
+                ))}
 
-            {/* AI Analysis */}
-            <TouchableOpacity style={tw`p-4 bg-white border border-gray-200 rounded-xl flex-row items-start`}>
-              <View style={tw`w-5 h-5 items-center justify-center mr-3`}>
-                <Ionicons name="flash" size={18} color="#7c3aed" />
-              </View>
-              <View style={tw`flex-1`}>
-                <CustomText weight="Medium" size="xs" color="#1f2937" style={tw`mb-0.5`}>
-                  AI Analysis
-                </CustomText>
-                <CustomText size="xs" color="#6b7280">
-                  You started AI search of your pet Mixie
-                </CustomText>
-                <TouchableOpacity style={tw`mt-1`}>
-                  <CustomText size="2.7" color="#7c3aed">
-                    View details
-                  </CustomText>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
+                {/* Remove the AI Analysis placeholder since we only want 2 activities total */}
+              </>
+            )}
           </View>
         </View>
       </ScrollView>
 
       {/* ==== PET REGISTRATION MODAL ==== */}
-      <Modal animationType="slide" transparent={true} visible={modalVisible}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={tw`flex-1 bg-white`}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
-        >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={tw`flex-1`}>
-              {/* Header */}
-              <View
-                style={tw`flex-row items-center justify-between p-4`}
+      <Modal animationType="slide" transparent={false} visible={modalVisible}>
+        <SafeAreaView style={tw`flex-1 bg-white`}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={tw`flex-1`}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+          >
+            {/* Modal Header - Fixed */}
+            <View
+              style={tw`flex-row items-center justify-between p-4 border-b border-gray-100`}
+            >
+              <CustomText size="base" weight="Medium">
+                Register a Pet
+              </CustomText>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={tw`p-2 rounded-full bg-gray-800`}
               >
-                <CustomText size="base" weight="Medium">
-                  Register a Pet
-                </CustomText>
-                <TouchableOpacity
-                  onPress={() => setModalVisible(false)}
-                  style={tw`p-2 rounded-full bg-gray-50`}
+                <Ionicons name="close" size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Scrollable Content */}
+            <ScrollView
+              style={tw`flex-1`}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              bounces={true}
+              contentContainerStyle={tw`p-4 pb-6`}
+              scrollEnabled={true}
+              nestedScrollEnabled={true}
+            >
+              {/* ========== PET IMAGE UPLOAD ========== */}
+              <View style={tw`mb-6`}>
+                <CustomText
+                  size="xs"
+                  color="#6b7280"
+                  style={tw`mb-3 uppercase`}
                 >
-                  <Ionicons name="close" size={22} color="black"/>
+                  PET PHOTO *
+                </CustomText>
+
+                {petData.image ? (
+                  <View style={tw`relative w-full`}>
+                    <Image
+                      source={{ uri: petData.image.uri }}
+                      style={tw`w-full h-55 rounded-2xl`}
+                      resizeMode="cover"
+                    />
+                    <TouchableOpacity
+                      onPress={removeImage}
+                      style={tw`absolute -top-2 -right-2 bg-white rounded-full p-1`}
+                    >
+                      <Ionicons name="close" size={16} color="red" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={pickImage}
+                    style={tw`w-full h-55 border-2 border-dashed border-gray-300 rounded-2xl items-center justify-center bg-gray-50`}
+                  >
+                    <Ionicons name="camera-outline" size={32} color="#9ca3af" />
+                    <CustomText
+                      size="xs"
+                      color="#9ca3af"
+                      style={tw`mt-2 text-center`}
+                    >
+                      Tap to upload{"\n"}pet photo
+                    </CustomText>
+                  </TouchableOpacity>
+                )}
+
+                {validationErrors.image && (
+                  <CustomText size="xs" color="red" style={tw`mt-2`}>
+                    {validationErrors.image}
+                  </CustomText>
+                )}
+              </View>
+
+              {/* ========== PET INFORMATION SECTION ========== */}
+              <CustomText
+                size="sm"
+                weight="SemiBold"
+                color="#374151"
+                style={tw`mb-3`}
+              >
+                PET INFORMATION
+              </CustomText>
+
+              {/* PET NAME */}
+              <View style={tw`mb-4`}>
+                <CustomText
+                  size="xs"
+                  color="#6b7280"
+                  style={tw`mb-1 uppercase`}
+                >
+                  PET NAME *
+                </CustomText>
+                <CustomInput
+                  placeholder="Enter your pet's name"
+                  value={petData.petname}
+                  onChangeText={(text) => handleInputChange("petname", text)}
+                  error={validationErrors.petname}
+                />
+              </View>
+
+              {/* SPECIES */}
+              <View style={tw`mb-4`}>
+                <CustomText
+                  size="xs"
+                  color="#6b7280"
+                  style={tw`mb-1 uppercase`}
+                >
+                  SPECIES *
+                </CustomText>
+                {validationErrors.species && (
+                  <CustomText size="xs" color="red" style={tw`mb-1`}>
+                    {validationErrors.species}
+                  </CustomText>
+                )}
+                <View style={tw`flex-row gap-3`}>
+                  {["Dog", "Cat"].map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      onPress={() => handleInputChange("species", option)}
+                      style={[
+                        tw`flex-1 py-3 rounded-xl border-2 items-center justify-center`,
+                        {
+                          borderColor:
+                            petData.species === option ? "#2A80FD" : "#e5e7eb",
+                          backgroundColor:
+                            petData.species === option ? "#eff6ff" : "#f9fafb",
+                        },
+                      ]}
+                    >
+                      <CustomText
+                        size="xs"
+                        weight={
+                          petData.species === option ? "SemiBold" : "Medium"
+                        }
+                        color={
+                          petData.species === option ? "#2A80FD" : "#6b7280"
+                        }
+                      >
+                        {option}
+                      </CustomText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* BREED */}
+              <View style={tw`mb-4`}>
+                <CustomText
+                  size="xs"
+                  color="#6b7280"
+                  style={tw`mb-1 uppercase`}
+                >
+                  BREED *
+                </CustomText>
+                {validationErrors.breed && (
+                  <CustomText size="xs" color="red" style={tw`mb-1`}>
+                    {validationErrors.breed}
+                  </CustomText>
+                )}
+                <TouchableOpacity
+                  onPress={() => petData.species && setBreedModalVisible(true)}
+                  style={[
+                    tw`p-4 rounded-xl flex-row items-center justify-between`,
+                    {
+                      backgroundColor: !petData.species ? "#f3f4f6" : "#f9fafb",
+                      borderWidth: 1,
+                      borderColor: validationErrors.breed ? "red" : "#e5e7eb",
+                    },
+                  ]}
+                  disabled={!petData.species}
+                >
+                  <CustomText
+                    size="xs"
+                    color={petData.breed ? "#1f2937" : "#9ca3af"}
+                    weight={petData.breed ? "Medium" : "Regular"}
+                  >
+                    {petData.breed ||
+                      (petData.species
+                        ? `Select ${petData.species.toLowerCase()} breed`
+                        : "Select species first")}
+                  </CustomText>
+                  <Ionicons name="create-outline" size={18} color="#6b7280" />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView 
-                style={tw`flex-1 p-4`} 
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
-                {/* ========== PET IMAGE UPLOAD ========== */}
-                <View style={tw`mb-6`}>
-                  <CustomText size="xs" color="#6b7280" style={tw`mb-3 uppercase`}>
-                    PET PHOTO *
+              {/* COLOR / MARKINGS */}
+              <View style={tw`mb-4`}>
+                <CustomText
+                  size="xs"
+                  color="#6b7280"
+                  style={tw`mb-1 uppercase`}
+                >
+                  COLOR / MARKINGS *
+                </CustomText>
+                <CustomInput
+                  placeholder="e.g. Brown with white paws"
+                  value={petData.color}
+                  onChangeText={(text) => handleInputChange("color", text)}
+                  error={validationErrors.color}
+                />
+              </View>
+
+              {/* GENDER */}
+              <View style={tw`mb-4`}>
+                <CustomText
+                  size="xs"
+                  color="#6b7280"
+                  style={tw`mb-1 uppercase`}
+                >
+                  GENDER *
+                </CustomText>
+                {validationErrors.gender && (
+                  <CustomText size="xs" color="red" style={tw`mb-1`}>
+                    {validationErrors.gender}
                   </CustomText>
-                  
-                  {petData.image ? (
-                    <View style={tw`relative w-full`}> 
-                      <Image
-                        source={{ uri: petData.image.uri }}
-                        style={tw`w-full h-55 rounded-2xl`} 
-                        resizeMode="cover"
-                      />
-                      <TouchableOpacity
-                        onPress={removeImage}
-                        style={tw`absolute -top-2 -right-2 bg-white rounded-full p-1`}
-                      >
-                        <Ionicons name="close" size={16} color="red" />
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
+                )}
+                <View style={tw`flex-row gap-3`}>
+                  {["Male", "Female"].map((option) => (
                     <TouchableOpacity
-                      onPress={pickImage}
-                      style={tw`w-full h-55 border-2 border-dashed border-gray-300 rounded-2xl items-center justify-center bg-gray-50`}
+                      key={option}
+                      onPress={() => handleInputChange("gender", option)}
+                      style={[
+                        tw`flex-1 py-3 rounded-xl border-2 items-center justify-center`,
+                        {
+                          borderColor:
+                            petData.gender === option ? "#2A80FD" : "#e5e7eb",
+                          backgroundColor:
+                            petData.gender === option ? "#eff6ff" : "#f9fafb",
+                        },
+                      ]}
                     >
-                      <Ionicons name="camera-outline" size={32} color="#9ca3af" />
-                      <CustomText size="xs" color="#9ca3af" style={tw`mt-2 text-center`}>
-                        Tap to upload{'\n'}pet photo
+                      <CustomText
+                        size="xs"
+                        weight={
+                          petData.gender === option ? "SemiBold" : "Medium"
+                        }
+                        color={
+                          petData.gender === option ? "#2A80FD" : "#6b7280"
+                        }
+                      >
+                        {option}
                       </CustomText>
                     </TouchableOpacity>
-                  )}
-                  
-                  {validationErrors.image && (
-                    <CustomText size="xs" color="red" style={tw`mt-2`}>
-                      {validationErrors.image}
-                    </CustomText>
-                  )}
+                  ))}
                 </View>
+              </View>
 
-                {/* ========== PET INFORMATION SECTION ========== */}
-                <CustomText
-                  size="sm"
-                  weight="SemiBold"
-                  color="#374151"
-                  style={tw`mb-3`}
-                >
-                  PET INFORMATION
-                </CustomText>
-
-                {/* PET NAME */}
-                <View style={tw`mb-4`}>
-                  <CustomText size="xs" color="#6b7280" style={tw`mb-1 uppercase`}>
-                    PET NAME *
-                  </CustomText>
-                  <CustomInput
-                    placeholder="Enter your pet's name"
-                    value={petData.petname}
-                    onChangeText={(text) => handleInputChange("petname", text)}
-                    error={validationErrors.petname}
-                  />
-                </View>
-
-                {/* SPECIES */}
-                <View style={tw`mb-4`}>
-                  <CustomText size="xs" color="#6b7280" style={tw`mb-1 uppercase`}>
-                    SPECIES *
-                  </CustomText>
-                  {validationErrors.species && (
-                    <CustomText size="xs" color="red" style={tw`mb-1`}>
-                      {validationErrors.species}
-                    </CustomText>
-                  )}
-                  <View style={tw`flex-row gap-3`}>
-                    {["Dog", "Cat"].map((option) => (
-                      <TouchableOpacity
-                        key={option}
-                        onPress={() => handleInputChange("species", option)}
-                        style={[
-                          tw`flex-1 py-3 rounded-xl border-2 items-center justify-center`,
-                          {
-                            borderColor:
-                              petData.species === option ? "#2A80FD" : "#e5e7eb",
-                            backgroundColor:
-                              petData.species === option ? "#eff6ff" : "#f9fafb",
-                          },
-                        ]}
-                      >
-                        <CustomText
-                          size="xs"
-                          weight={
-                            petData.species === option ? "SemiBold" : "Medium"
-                          }
-                          color={petData.species === option ? "#2A80FD" : "#6b7280"}
-                        >
-                          {option}
-                        </CustomText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                {/* BREED */}
-                <View style={tw`mb-4`}>
-                  <CustomText size="xs" color="#6b7280" style={tw`mb-1 uppercase`}>
-                    BREED *
-                  </CustomText>
-                  {validationErrors.breed && (
-                    <CustomText size="xs" color="red" style={tw`mb-1`}>
-                      {validationErrors.breed}
-                    </CustomText>
-                  )}
-                  <TouchableOpacity
-                    onPress={() => petData.species && setBreedModalVisible(true)}
-                    style={[
-                      tw`p-4 rounded-xl flex-row items-center justify-between`,
-                      {
-                        backgroundColor: !petData.species ? "#f3f4f6" : "#f9fafb",
-                        borderWidth: 1,
-                        borderColor: validationErrors.breed ? "red" : "#e5e7eb",
-                      },
-                    ]}
-                    disabled={!petData.species}
+              {/* AGE + SIZE */}
+              <View style={tw`flex-row gap-3 mb-4`}>
+                {/* AGE */}
+                <View style={tw`flex-1`}>
+                  <CustomText
+                    size="xs"
+                    color="#6b7280"
+                    style={tw`mb-1 uppercase`}
                   >
-                    <CustomText
-                      size="xs"
-                      color={petData.breed ? "#1f2937" : "#9ca3af"}
-                      weight={petData.breed ? "Medium" : "Regular"}
-                    >
-                      {petData.breed ||
-                        (petData.species
-                          ? `Select ${petData.species.toLowerCase()} breed`
-                          : "Select species first")}
-                    </CustomText>
-                    <Ionicons name="create-outline" size={18} color="#6b7280" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* COLOR / MARKINGS */}
-                <View style={tw`mb-4`}>
-                  <CustomText size="xs" color="#6b7280" style={tw`mb-1 uppercase`}>
-                    COLOR / MARKINGS *
+                    AGE GROUP *
                   </CustomText>
-                  <CustomInput
-                    placeholder="e.g. Brown with white paws"
-                    value={petData.color}
-                    onChangeText={(text) => handleInputChange("color", text)}
-                    error={validationErrors.color}
-                  />
-                </View>
-
-                {/* GENDER */}
-                <View style={tw`mb-4`}>
-                  <CustomText size="xs" color="#6b7280" style={tw`mb-1 uppercase`}>
-                    GENDER *
-                  </CustomText>
-                  {validationErrors.gender && (
+                  {validationErrors.age && (
                     <CustomText size="xs" color="red" style={tw`mb-1`}>
-                      {validationErrors.gender}
+                      {validationErrors.age}
                     </CustomText>
                   )}
-                  <View style={tw`flex-row gap-3`}>
-                    {["Male", "Female"].map((option) => (
-                      <TouchableOpacity
-                        key={option}
-                        onPress={() => handleInputChange("gender", option)}
-                        style={[
-                          tw`flex-1 py-3 rounded-xl border-2 items-center justify-center`,
-                          {
-                            borderColor:
-                              petData.gender === option ? "#2A80FD" : "#e5e7eb",
-                            backgroundColor:
-                              petData.gender === option ? "#eff6ff" : "#f9fafb",
-                          },
-                        ]}
+                  {["Puppy/Kitten", "Adult", "Senior"].map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      onPress={() => handleInputChange("age", option)}
+                      style={[
+                        tw`px-3 py-2 rounded-lg border mb-1`,
+                        {
+                          borderColor:
+                            petData.age === option ? "#2A80FD" : "#e5e7eb",
+                          backgroundColor:
+                            petData.age === option ? "#eff6ff" : "#f9fafb",
+                        },
+                      ]}
+                    >
+                      <CustomText
+                        size="xs"
+                        weight={petData.age === option ? "SemiBold" : "Medium"}
+                        color={petData.age === option ? "#2A80FD" : "#6b7280"}
+                        style={tw`text-center`}
                       >
-                        <CustomText
-                          size="xs"
-                          weight={petData.gender === option ? "SemiBold" : "Medium"}
-                          color={petData.gender === option ? "#2A80FD" : "#6b7280"}
-                        >
-                          {option}
-                        </CustomText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                        {option}
+                      </CustomText>
+                    </TouchableOpacity>
+                  ))}
                 </View>
 
-                {/* AGE + SIZE */}
-                <View style={tw`flex-row gap-3 mb-4`}>
-                  {/* AGE */}
-                  <View style={tw`flex-1`}>
-                    <CustomText
-                      size="xs"
-                      color="#6b7280"
-                      style={tw`mb-1 uppercase`}
-                    >
-                      AGE GROUP *
-                    </CustomText>
-                    {validationErrors.age && (
-                      <CustomText size="xs" color="red" style={tw`mb-1`}>
-                        {validationErrors.age}
-                      </CustomText>
-                    )}
-                    {["Puppy/Kitten", "Adult", "Senior"].map((option) => (
-                      <TouchableOpacity
-                        key={option}
-                        onPress={() => handleInputChange("age", option)}
-                        style={[
-                          tw`px-3 py-2 rounded-lg border mb-1`,
-                          {
-                            borderColor:
-                              petData.age === option ? "#2A80FD" : "#e5e7eb",
-                            backgroundColor:
-                              petData.age === option ? "#eff6ff" : "#f9fafb",
-                          },
-                        ]}
-                      >
-                        <CustomText
-                          size="xs"
-                          weight={petData.age === option ? "SemiBold" : "Medium"}
-                          color={petData.age === option ? "#2A80FD" : "#6b7280"}
-                          style={tw`text-center`}
-                        >
-                          {option}
-                        </CustomText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  {/* SIZE */}
-                  <View style={tw`flex-1`}>
-                    <CustomText
-                      size="xs"
-                      color="#6b7280"
-                      style={tw`mb-1 uppercase`}
-                    >
-                      SIZE *
-                    </CustomText>
-                    {validationErrors.size && (
-                      <CustomText size="xs" color="red" style={tw`mb-1`}>
-                        {validationErrors.size}
-                      </CustomText>
-                    )}
-                    {["Small", "Medium", "Large"].map((option) => (
-                      <TouchableOpacity
-                        key={option}
-                        onPress={() => handleInputChange("size", option)}
-                        style={[
-                          tw`px-3 py-2 rounded-lg border mb-1`,
-                          {
-                            borderColor:
-                              petData.size === option ? "#2A80FD" : "#e5e7eb",
-                            backgroundColor:
-                              petData.size === option ? "#eff6ff" : "#f9fafb",
-                          },
-                        ]}
-                      >
-                        <CustomText
-                          size="xs"
-                          weight={petData.size === option ? "SemiBold" : "Medium"}
-                          color={petData.size === option ? "#2A80FD" : "#6b7280"}
-                          style={tw`text-center`}
-                        >
-                          {option}
-                        </CustomText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                {/* DISTINGUISHING FEATURES */}
-                <View style={tw`mb-4`}>
-                  <CustomText size="xs" color="#6b7280" style={tw`mb-1 uppercase`}>
-                    DISTINGUISHING FEATURES
+                {/* SIZE */}
+                <View style={tw`flex-1`}>
+                  <CustomText
+                    size="xs"
+                    color="#6b7280"
+                    style={tw`mb-1 uppercase`}
+                  >
+                    SIZE *
                   </CustomText>
-                  <CustomInput
-                    placeholder="e.g. Scar on left ear"
-                    value={petData.features}
-                    onChangeText={(text) => handleInputChange("features", text)}
-                    multiline
-                    numberOfLines={3}
-                    maxLength={200}
-                  />
+                  {validationErrors.size && (
+                    <CustomText size="xs" color="red" style={tw`mb-1`}>
+                      {validationErrors.size}
+                    </CustomText>
+                  )}
+                  {["Small", "Medium", "Large"].map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      onPress={() => handleInputChange("size", option)}
+                      style={[
+                        tw`px-3 py-2 rounded-lg border mb-1`,
+                        {
+                          borderColor:
+                            petData.size === option ? "#2A80FD" : "#e5e7eb",
+                          backgroundColor:
+                            petData.size === option ? "#eff6ff" : "#f9fafb",
+                        },
+                      ]}
+                    >
+                      <CustomText
+                        size="xs"
+                        weight={petData.size === option ? "SemiBold" : "Medium"}
+                        color={petData.size === option ? "#2A80FD" : "#6b7280"}
+                        style={tw`text-center`}
+                      >
+                        {option}
+                      </CustomText>
+                    </TouchableOpacity>
+                  ))}
                 </View>
+              </View>
 
-                {/* ========== CONDITION / BEHAVIOR SECTION ========== */}
+              {/* DISTINGUISHING FEATURES */}
+              <View style={tw`mb-4`}>
                 <CustomText
-                  size="sm"
-                  weight="SemiBold"
-                  color="#374151"
-                  style={tw`mb-3`}
+                  size="xs"
+                  color="#6b7280"
+                  style={tw`mb-1 uppercase`}
                 >
-                  CONDITION / BEHAVIOR
+                  DISTINGUISHING FEATURES
                 </CustomText>
+                <CustomInput
+                  placeholder="e.g. Scar on left ear"
+                  value={petData.features}
+                  onChangeText={(text) => handleInputChange("features", text)}
+                  multiline
+                  numberOfLines={3}
+                  maxLength={200}
+                />
+              </View>
 
-                {/* HEALTH STATUS */}
-                <View style={tw`mb-4`}>
-                  <CustomText size="xs" color="#6b7280" style={tw`mb-1 uppercase`}>
-                    HEALTH STATUS *
+              {/* ========== CONDITION / BEHAVIOR SECTION ========== */}
+              <CustomText
+                size="sm"
+                weight="SemiBold"
+                color="#374151"
+                style={tw`mb-3`}
+              >
+                CONDITION / BEHAVIOR
+              </CustomText>
+
+              {/* HEALTH STATUS */}
+              <View style={tw`mb-4`}>
+                <CustomText
+                  size="xs"
+                  color="#6b7280"
+                  style={tw`mb-1 uppercase`}
+                >
+                  HEALTH STATUS *
+                </CustomText>
+                {validationErrors.health && (
+                  <CustomText size="xs" color="red" style={tw`mb-1`}>
+                    {validationErrors.health}
                   </CustomText>
-                  {validationErrors.health && (
-                    <CustomText size="xs" color="red" style={tw`mb-1`}>
-                      {validationErrors.health}
-                    </CustomText>
-                  )}
-                  <View style={tw`flex-row flex-wrap gap-2`}>
-                    {["Healthy", "Injured", "Recovering", "Sick"].map((option) => (
+                )}
+                <View style={tw`flex-row flex-wrap gap-2`}>
+                  {["Healthy", "Injured", "Recovering", "Sick"].map(
+                    (option) => (
                       <TouchableOpacity
                         key={option}
                         onPress={() => handleInputChange("health", option)}
@@ -942,101 +1348,122 @@ export default function HomeScreen() {
                       >
                         <CustomText
                           size="xs"
-                          weight={petData.health === option ? "SemiBold" : "Medium"}
-                          color={petData.health === option ? "#2A80FD" : "#6b7280"}
+                          weight={
+                            petData.health === option ? "SemiBold" : "Medium"
+                          }
+                          color={
+                            petData.health === option ? "#2A80FD" : "#6b7280"
+                          }
                         >
                           {option}
                         </CustomText>
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                {/* BEHAVIOR */}
-                <View style={tw`mb-4`}>
-                  <CustomText size="xs" color="#6b7280" style={tw`mb-1 uppercase`}>
-                    BEHAVIOR *
-                  </CustomText>
-                  {validationErrors.behavior && (
-                    <CustomText size="xs" color="red" style={tw`mb-1`}>
-                      {validationErrors.behavior}
-                    </CustomText>
+                    )
                   )}
-                  <View style={tw`flex-row flex-wrap gap-2`}>
-                    {["Friendly", "Aggressive", "Energetic", "Shy", "Calm"].map(
-                      (option) => (
-                        <TouchableOpacity
-                          key={option}
-                          onPress={() => handleInputChange("behavior", option)}
-                          style={[
-                            tw`px-4 py-2 rounded-lg border`,
-                            {
-                              borderColor:
-                                petData.behavior === option ? "#2A80FD" : "#e5e7eb",
-                              backgroundColor:
-                                petData.behavior === option ? "#eff6ff" : "#f9fafb",
-                            },
-                          ]}
-                        >
-                          <CustomText
-                            size="xs"
-                            weight={
-                              petData.behavior === option ? "SemiBold" : "Medium"
-                            }
-                            color={
-                              petData.behavior === option ? "#2A80FD" : "#6b7280"
-                            }
-                          >
-                            {option}
-                          </CustomText>
-                        </TouchableOpacity>
-                      )
-                    )}
-                  </View>
                 </View>
-
-                {/* SPECIAL NEEDS */}
-                <View style={tw`mb-6`}>
-                  <CustomText size="xs" color="#6b7280" style={tw`mb-1 uppercase`}>
-                    SPECIAL NEEDS
-                  </CustomText>
-                  <CustomInput
-                    placeholder="e.g. Daily heart medication"
-                    value={petData.specialNeeds}
-                    onChangeText={(text) => handleInputChange("specialNeeds", text)}
-                    multiline
-                    numberOfLines={3}
-                    maxLength={200}
-                  />
-                </View>
-              </ScrollView>
-              
-              {/* Fixed SAVE BUTTON at bottom */}
-              <View style={tw`p-4 border-t border-gray-200 bg-white`}>
-                <TouchableOpacity
-                  onPress={handleSavePet}
-                  style={[tw`bg-blue-500 p-4 rounded-2xl items-center`, isSaving && tw`opacity-50`]}
-                  activeOpacity={0.85}
-                  disabled={isSaving}
-                >
-                  {isSaving ? (
-                    <CustomText weight="Medium" color="white" size="sm">
-                      Saving...
-                    </CustomText>
-                  ) : (
-                    <CustomText weight="Medium" color="white" size="sm">
-                      Save Pet
-                    </CustomText>
-                  )}
-                </TouchableOpacity>
               </View>
+
+              {/* BEHAVIOR */}
+              <View style={tw`mb-4`}>
+                <CustomText
+                  size="xs"
+                  color="#6b7280"
+                  style={tw`mb-1 uppercase`}
+                >
+                  BEHAVIOR *
+                </CustomText>
+                {validationErrors.behavior && (
+                  <CustomText size="xs" color="red" style={tw`mb-1`}>
+                    {validationErrors.behavior}
+                  </CustomText>
+                )}
+                <View style={tw`flex-row flex-wrap gap-2`}>
+                  {["Friendly", "Aggressive", "Energetic", "Shy", "Calm"].map(
+                    (option) => (
+                      <TouchableOpacity
+                        key={option}
+                        onPress={() => handleInputChange("behavior", option)}
+                        style={[
+                          tw`px-4 py-2 rounded-lg border`,
+                          {
+                            borderColor:
+                              petData.behavior === option
+                                ? "#2A80FD"
+                                : "#e5e7eb",
+                            backgroundColor:
+                              petData.behavior === option
+                                ? "#eff6ff"
+                                : "#f9fafb",
+                          },
+                        ]}
+                      >
+                        <CustomText
+                          size="xs"
+                          weight={
+                            petData.behavior === option ? "SemiBold" : "Medium"
+                          }
+                          color={
+                            petData.behavior === option ? "#2A80FD" : "#6b7280"
+                          }
+                        >
+                          {option}
+                        </CustomText>
+                      </TouchableOpacity>
+                    )
+                  )}
+                </View>
+              </View>
+
+              {/* SPECIAL NEEDS */}
+              <View style={tw`mb-0`}>
+                <CustomText
+                  size="xs"
+                  color="#6b7280"
+                  style={tw`mb-1 uppercase`}
+                >
+                  SPECIAL NEEDS
+                </CustomText>
+                <CustomInput
+                  placeholder="e.g. Daily heart medication"
+                  value={petData.specialNeeds}
+                  onChangeText={(text) =>
+                    handleInputChange("specialNeeds", text)
+                  }
+                  multiline
+                  numberOfLines={3}
+                  maxLength={200}
+                />
+              </View>
+            </ScrollView>
+
+            {/* Fixed SAVE BUTTON at bottom */}
+            <View style={tw`p-4 border-t border-gray-200 bg-white`}>
+              <TouchableOpacity
+                onPress={handleSavePet}
+                style={[
+                  tw`bg-blue-500 p-4 rounded-2xl items-center`,
+                  isSaving && tw`opacity-50`,
+                ]}
+                activeOpacity={0.85}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <CustomText weight="Medium" color="white" size="sm">
+                    Saving...
+                  </CustomText>
+                ) : (
+                  <CustomText weight="Medium" color="white" size="sm">
+                    Save Pet
+                  </CustomText>
+                )}
+              </TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
 
       {/* ==== BREED SELECTION MODAL ==== */}
-       <Modal
+      <Modal
         animationType="slide"
         transparent={true}
         visible={breedModalVisible}
@@ -1048,19 +1475,23 @@ export default function HomeScreen() {
         }}
       >
         <View style={tw`flex-1 justify-end bg-black/50`}>
-          <TouchableWithoutFeedback onPress={() => {
-            setBreedModalVisible(false);
-            setShowCustomBreedInput(false);
-            setCustomBreed("");
-            setSearchQuery("");
-          }}>
+          <TouchableWithoutFeedback
+            onPress={() => {
+              setBreedModalVisible(false);
+              setShowCustomBreedInput(false);
+              setCustomBreed("");
+              setSearchQuery("");
+            }}
+          >
             <View style={tw`flex-1`} />
           </TouchableWithoutFeedback>
-          
-          <View style={tw`bg-white rounded-t-3xl overflow-hidden h-2/3`}>
+
+          <SafeAreaView
+            style={tw`bg-white rounded-t-3xl overflow-hidden h-2/3`}
+          >
             {/* Header */}
             <View
-              style={tw`flex-row items-center justify-between p-4`}
+              style={tw`flex-row items-center justify-between p-4 border-b border-gray-100`}
             >
               <CustomText size="sm" weight="Medium">
                 Select Breed
@@ -1079,9 +1510,11 @@ export default function HomeScreen() {
             </View>
 
             {/* Search Input */}
-            <View style={tw`px-4`}>
+            <View style={tw`px-4 py-2`}>
               <CustomInput
-                placeholder={`Search ${petData.species?.toLowerCase() || ""} breeds`}
+                placeholder={`Search ${
+                  petData.species?.toLowerCase() || ""
+                } breeds`}
                 value={searchQuery}
                 onChangeText={(text) => {
                   setSearchQuery(text);
@@ -1092,23 +1525,31 @@ export default function HomeScreen() {
                 containerStyle={tw`mb-0`}
               />
               {searchQuery.length > 0 && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => {
                     setSearchQuery("");
                     setShowCustomBreedInput(false);
                   }}
-                  style={tw`absolute right-6 top-4 z-10`}
+                  style={tw`absolute right-6 top-6 z-10`}
                 >
-                  <Ionicons name="close-circle" size={18} color="#9ca3af" style={tw`mr-2`}/>
+                  <Ionicons
+                    name="close-circle"
+                    size={18}
+                    color="#9ca3af"
+                    style={tw`mr-2`}
+                  />
                 </TouchableOpacity>
               )}
             </View>
 
             {/* Breed List or Custom Breed Input */}
             <ScrollView
-              style={tw`flex-1 p-4`}
+              style={tw`flex-1 px-4`}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              bounces={true}
+              contentContainerStyle={tw`pb-6`}
+              nestedScrollEnabled={true}
             >
               {showCustomBreedInput ? (
                 // Custom Breed Input
@@ -1139,9 +1580,7 @@ export default function HomeScreen() {
                       onPress={handleCustomBreedSubmit}
                       style={[
                         tw`flex-1 py-3 rounded-xl items-center`,
-                        customBreed.trim() 
-                          ? tw`bg-blue-500` 
-                          : tw`bg-gray-300`
+                        customBreed.trim() ? tw`bg-blue-500` : tw`bg-gray-300`,
                       ]}
                       disabled={!customBreed.trim()}
                     >
@@ -1177,17 +1616,24 @@ export default function HomeScreen() {
                       </CustomText>
                     </TouchableOpacity>
                   ))}
-                  
+
                   {/* Add Custom Breed Option */}
                   {searchQuery.length > 0 && (
                     <TouchableOpacity
                       onPress={() => setShowCustomBreedInput(true)}
                       style={tw`p-4 mb-3 rounded-xl border border-dashed border-gray-300 items-center`}
                     >
-                      <Ionicons name="add-circle-outline" size={20} color="#6b7280" style={tw`mr-2`} />
-                      <CustomText size="xs" color="#6b7280">
-                        Add "{searchQuery}" as custom breed
-                      </CustomText>
+                      <View style={tw`flex-row items-center`}>
+                        <Ionicons
+                          name="add-circle-outline"
+                          size={20}
+                          color="#6b7280"
+                          style={tw`mr-2`}
+                        />
+                        <CustomText size="xs" color="#6b7280">
+                          Add "{searchQuery}" as custom breed
+                        </CustomText>
+                      </View>
                     </TouchableOpacity>
                   )}
                 </>
@@ -1195,13 +1641,16 @@ export default function HomeScreen() {
                 // No breeds found
                 <View style={tw`items-center mt-10`}>
                   <Ionicons name="paw-outline" size={40} color="#9ca3af" />
-                  <CustomText size="sm" color="#9ca3af" style={tw`mt-2 mb-6 text-center`}>
-                    {searchQuery.length > 0 
+                  <CustomText
+                    size="sm"
+                    color="#9ca3af"
+                    style={tw`mt-2 mb-6 text-center`}
+                  >
+                    {searchQuery.length > 0
                       ? `No "${searchQuery}" breed found`
-                      : "No breeds available"
-                    }
+                      : "No breeds available"}
                   </CustomText>
-                  
+
                   {searchQuery.length > 0 && (
                     <TouchableOpacity
                       onPress={() => setShowCustomBreedInput(true)}
@@ -1215,7 +1664,7 @@ export default function HomeScreen() {
                 </View>
               )}
             </ScrollView>
-          </View>
+          </SafeAreaView>
         </View>
       </Modal>
 
@@ -1245,7 +1694,12 @@ export default function HomeScreen() {
                   navigation.navigate("ReportScreen", { reportType: "lost" });
                 }}
               >
-                <CustomText color="white" weight="Medium" size="xs" style={tw`text-center`}>
+                <CustomText
+                  color="white"
+                  weight="Medium"
+                  size="xs"
+                  style={tw`text-center`}
+                >
                   Lost pet
                 </CustomText>
               </TouchableOpacity>
@@ -1258,16 +1712,19 @@ export default function HomeScreen() {
                   navigation.navigate("ReportScreen", { reportType: "found" });
                 }}
               >
-                <CustomText color="white" weight="Medium" size="xs" style={tw`text-center`}>
+                <CustomText
+                  color="white"
+                  weight="Medium"
+                  size="xs"
+                  style={tw`text-center`}
+                >
                   Found pet
                 </CustomText>
               </TouchableOpacity>
             </View>
 
             {/* Cancel centered */}
-            <TouchableOpacity
-              onPress={() => setReportTypeModalVisible(false)}
-            >
+            <TouchableOpacity onPress={() => setReportTypeModalVisible(false)}>
               <CustomText size="xs" color="#6b7280" style={tw`text-center`}>
                 Cancel
               </CustomText>
@@ -1276,6 +1733,353 @@ export default function HomeScreen() {
         }
       />
 
+      {/* ==== AI SEARCH MODAL ==== */}
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={aiSearchModalVisible}
+        onRequestClose={() => {
+          setAiSearchModalVisible(false);
+          setSelectedPet(null);
+          setEditingPetData(null);
+          setIsEditing(false);
+        }}
+      >
+        <SafeAreaView style={tw`flex-1 bg-white`}>
+          {/* Modal Header */}
+          <View
+            style={tw`flex-row items-center justify-between p-4 border-b border-gray-100`}
+          >
+            <CustomText size="sm" weight="Medium">
+              {selectedPet
+                ? isEditing
+                  ? "Edit Pet Details"
+                  : "Pet Details"
+                : "Select a Pet"}
+            </CustomText>
+            <TouchableOpacity
+              onPress={() => {
+                setAiSearchModalVisible(false);
+                setSelectedPet(null);
+                setEditingPetData(null);
+                setIsEditing(false);
+              }}
+              style={tw`p-2 rounded-full bg-gray-800`}
+            >
+              <Ionicons name="close" size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={tw`flex-1`}
+            contentContainerStyle={tw`p-4 pb-6`}
+            showsVerticalScrollIndicator={false}
+          >
+            {!selectedPet ? (
+              // Pet Selection View
+              <>
+                <View style={tw`flex-row items-start mb-6`}>
+                  <Ionicons
+                    name="flash"
+                    size={16}
+                    color="#9e00baff"
+                    style={tw`mr-2 mt-0.5`}
+                  />
+                  <CustomText
+                    size="xs"
+                    weight="Regular"
+                    style={tw`text-gray-500 flex-1`}
+                  >
+                    AI predicts your pet’s likely routes based on behavior and
+                    environment. You can start AI searches for up to 2 pets
+                    only.
+                  </CustomText>
+                </View>
+
+                {userPets.length === 0 ? (
+                  <View style={tw`items-center justify-center py-10`}>
+                    <Ionicons name="paw-outline" size={40} color="#9ca3af" />
+                    <CustomText
+                      size="sm"
+                      color="#6b7280"
+                      style={tw`mt-4 text-center`}
+                    >
+                      No pets registered yet
+                    </CustomText>
+                    <CustomText
+                      size="xs"
+                      color="#6b7280"
+                      style={tw`mt-2 text-center`}
+                    >
+                      Please register a pet before using AI search
+                    </CustomText>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setAiSearchModalVisible(false);
+                        setModalVisible(true);
+                      }}
+                      style={tw`bg-blue-500 px-6 py-3 rounded-xl mt-4`}
+                    >
+                      <CustomText size="sm" weight="Medium" color="white">
+                        Register Pet
+                      </CustomText>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  userPets.map((pet, index) => (
+                    <TouchableOpacity
+                      key={pet.id}
+                      onPress={() => handlePetSelect(pet)}
+                      style={[
+                        tw`p-4 rounded-xl mb-3 flex-row items-center`,
+                        index % 2 === 0 ? tw`bg-gray-800` : tw`bg-gray-100`,
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: pet.photoUrl }}
+                        style={tw`w-12 h-12 rounded-full mr-3`}
+                        resizeMode="cover"
+                      />
+                      <View style={tw`flex-1`}>
+                        <CustomText
+                          weight="Medium"
+                          size="sm"
+                          style={
+                            index % 2 === 0 ? tw`text-white` : tw`text-gray-900`
+                          }
+                        >
+                          {pet.petname}
+                        </CustomText>
+                        <CustomText
+                          size="xs"
+                          style={
+                            index % 2 === 0
+                              ? tw`text-gray-300`
+                              : tw`text-gray-600`
+                          }
+                        >
+                          {pet.breed} • {pet.species}
+                        </CustomText>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={index % 2 === 0 ? "#fff" : "#9ca3af"}
+                      />
+                    </TouchableOpacity>
+                  ))
+                )}
+              </>
+            ) : (
+              // Pet Details View (with editing capability)
+              <>
+                {isEditing ? (
+                  // Edit Mode
+                  <>
+                    <View style={tw`items-center mb-6`}>
+                      <Image
+                        source={{ uri: editingPetData.photoUrl }}
+                        style={tw`w-24 h-24 rounded-full`}
+                        resizeMode="cover"
+                      />
+                    </View>
+
+                    {/* Editable Fields */}
+                    <View style={tw`mb-4`}>
+                      <CustomText
+                        size="xs"
+                        color="#6b7280"
+                        style={tw`mb-1 uppercase`}
+                      >
+                        PET BEHAVIOR
+                      </CustomText>
+                      <CustomInput
+                        value={editingPetData.behavior || ""}
+                        onChangeText={(text) =>
+                          handleEditPetData("behavior", text)
+                        }
+                        placeholder="Describe pet behavior"
+                      />
+                    </View>
+
+                    <View style={tw`mb-4`}>
+                      <CustomText
+                        size="xs"
+                        color="#6b7280"
+                        style={tw`mb-1 uppercase`}
+                      >
+                        HEALTH CONDITION
+                      </CustomText>
+                      <CustomInput
+                        value={editingPetData.health || ""}
+                        onChangeText={(text) =>
+                          handleEditPetData("health", text)
+                        }
+                        placeholder="Describe health condition"
+                      />
+                    </View>
+
+                    <View style={tw`mb-4`}>
+                      <CustomText
+                        size="xs"
+                        color="#6b7280"
+                        style={tw`mb-1 uppercase`}
+                      >
+                        SPECIAL NEEDS
+                      </CustomText>
+                      <CustomInput
+                        value={editingPetData.specialNeeds || ""}
+                        onChangeText={(text) =>
+                          handleEditPetData("specialNeeds", text)
+                        }
+                        placeholder="Any special needs or requirements"
+                        multiline
+                        numberOfLines={3}
+                      />
+                    </View>
+
+                    <View style={tw`mb-4`}>
+                      <CustomText
+                        size="xs"
+                        color="#6b7280"
+                        style={tw`mb-1 uppercase`}
+                      >
+                        DISTINGUISHING FEATURES
+                      </CustomText>
+                      <CustomInput
+                        value={editingPetData.features || ""}
+                        onChangeText={(text) =>
+                          handleEditPetData("features", text)
+                        }
+                        placeholder="Unique features or markings"
+                        multiline
+                        numberOfLines={3}
+                      />
+                    </View>
+
+                    <View style={tw`flex-row gap-3 mt-4`}>
+                      <TouchableOpacity
+                        onPress={() => setIsEditing(false)}
+                        style={tw`flex-1 py-3 rounded-xl border border-gray-300 items-center`}
+                      >
+                        <CustomText size="sm" weight="Medium">
+                          Cancel
+                        </CustomText>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleSavePetEdits}
+                        style={tw`flex-1 bg-blue-500 py-3 rounded-xl items-center`}
+                      >
+                        <CustomText size="sm" weight="Medium" color="white">
+                          Save Changes
+                        </CustomText>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  // View Mode
+                  <>
+                    <View style={tw`items-center mb-6`}>
+                      <Image
+                        source={{ uri: selectedPet.photoUrl }}
+                        style={tw`w-24 h-24 rounded-full`}
+                        resizeMode="cover"
+                      />
+                      <CustomText weight="Bold" size="base" style={tw`mt-2`}>
+                        {selectedPet.petname}
+                      </CustomText>
+                      <CustomText size="sm" style={tw`text-gray-500`}>
+                        {selectedPet.breed} | {selectedPet.species}
+                      </CustomText>
+                    </View>
+
+                    {/* Display Pet Details */}
+                    <View style={tw`mb-4 p-4 bg-gray-100 rounded-xl`}>
+                      <CustomText
+                        size="xs"
+                        color="#6b7280"
+                        style={tw`mb-1 uppercase`}
+                      >
+                        BEHAVIOR
+                      </CustomText>
+                      <CustomText size="sm">
+                        {selectedPet.behavior || "Not specified"}
+                      </CustomText>
+                    </View>
+
+                    <View style={tw`mb-4 p-4 bg-gray-100 rounded-xl`}>
+                      <CustomText
+                        size="xs"
+                        color="#6b7280"
+                        style={tw`mb-1 uppercase`}
+                      >
+                        HEALTH CONDITION
+                      </CustomText>
+                      <CustomText size="sm">
+                        {selectedPet.health || "Not specified"}
+                      </CustomText>
+                    </View>
+
+                    <View style={tw`mb-4 p-4 bg-gray-100 rounded-xl`}>
+                      <CustomText
+                        size="xs"
+                        color="#6b7280"
+                        style={tw`mb-1 uppercase`}
+                      >
+                        SPECIAL NEEDS
+                      </CustomText>
+                      <CustomText size="sm">
+                        {selectedPet.specialNeeds || "None"}
+                      </CustomText>
+                    </View>
+
+                    <View style={tw`mb-6 p-4 bg-gray-100 rounded-xl`}>
+                      <CustomText
+                        size="xs"
+                        color="#6b7280"
+                        style={tw`mb-1 uppercase`}
+                      >
+                        DISTINGUISHING FEATURES
+                      </CustomText>
+                      <CustomText size="sm">
+                        {selectedPet.features || "Not specified"}
+                      </CustomText>
+                    </View>
+
+                    <View style={tw`flex-row gap-3`}>
+                      <TouchableOpacity
+                        onPress={() => setIsEditing(true)}
+                        style={tw`flex-1 py-3 rounded-xl border border-gray-300 items-center`}
+                      >
+                        <CustomText size="sm" weight="Medium">
+                          Edit Details
+                        </CustomText>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleStartAiAnalysis}
+                        style={tw`flex-1 bg-purple-600 py-3 rounded-xl items-center`}
+                      >
+                        <CustomText size="sm" weight="Medium" color="white">
+                          Start AI Analysis
+                        </CustomText>
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => setSelectedPet(null)}
+                      style={tw`py-3 mt-4 items-center`}
+                    >
+                      <CustomText size="sm" color="#6b7280">
+                        ← Back to pet selection
+                      </CustomText>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }

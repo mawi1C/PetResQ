@@ -1,5 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+  <meta-data
+    android:name="com.google.android.geo.API_KEY"
+    android:value="AIzaSyCm23FGetmkS8NQ_TwBp2wdlzf-_PXqINA"/>
+
   <uses-permission android:name="android.permission.INTERNET"/>
   <!-- OPTIONAL PERMISSIONS, REMOVE WHATEVER YOU DO NOT NEED -->
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>

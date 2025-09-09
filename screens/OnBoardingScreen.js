@@ -132,7 +132,7 @@ export default function OnboardingScreen({ navigation }) {
                   resizeMode="contain" 
                 />
               </View>
-              <CustomText fontWeight="400" style={tw`text-gray-800 text-md`}>
+              <CustomText fontWeight="400" style={tw`text-gray-800 text-base`}>
                 PetResQ
               </CustomText>
             </View>
@@ -171,17 +171,17 @@ export default function OnboardingScreen({ navigation }) {
             {/* Main Heading */}
             <View style={tw`mb-6`}>
               <CustomText style={tw`text-center leading-tight mb-2`}>
-                <CustomText size="6.5" style={[tw`text-blue-500`, { fontWeight: "400" }]}> Home</CustomText>
-                <CustomText size="6.5" style={[tw`text-gray-800`, { fontWeight: "400" }]}> is where their</CustomText>
+                <CustomText size="2xl" style={tw`text-blue-500`}> Home</CustomText>
+                <CustomText size="2xl" style={tw`text-gray-800`}> is where their</CustomText>
               </CustomText>
               <CustomText style={tw`text-center leading-tight`}>
-                <CustomText size="6.5" style={[tw`text-blue-500`, { fontWeight: "400" }]}> heart</CustomText>
-                <CustomText size="6.5" style={[tw`text-gray-800`, { fontWeight: "400" }]}> waits.</CustomText>
+                <CustomText size="2xl" style={tw`text-blue-500`}> heart</CustomText>
+                <CustomText size="2xl" style={tw`text-gray-800`}> waits.</CustomText>
               </CustomText>
             </View>
 
             {/* Subtitle */}
-            <CustomText style={tw`text-center text-gray-600 text-sm leading-relaxed mb-8`}>
+            <CustomText style={tw`text-center text-gray-600 text-xs leading-relaxed mb-8`}>
               Guided by kindness and community, we help reunite pets with their families.
             </CustomText>
 
@@ -200,8 +200,8 @@ export default function OnboardingScreen({ navigation }) {
                 activeOpacity={0.8}
               >
                 <View style={tw`flex-row items-center`}>
-                  <Ionicons name="log-in-outline" size={24} color="white" style={tw`mr-2`} />
-                  <CustomText style={tw`text-white text-sm`} weight="Medium">
+                  <Ionicons name="log-in-outline" size={20} color="white" style={tw`mr-2`} />
+                  <CustomText style={tw`text-white text-xs`} weight="Medium">
                     Join Community
                   </CustomText>
                 </View>

@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import HomeScreen from "../screens/mainscreens/HomeScreen";
 import ProfileScreen from "../screens/mainscreens/ProfileScreen";
+import CommunityScreen from "../screens/mainscreens/CommunityScreen";
 
 // Create tab navigator
 const Tab = createBottomTabNavigator();
@@ -232,7 +233,7 @@ export default function BottomNav() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Map" component={HomeScreen} />
-      <Tab.Screen name="Community" component={HomeScreen} />
+      <Tab.Screen name="Community" component={CommunityScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

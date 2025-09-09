@@ -17,6 +17,10 @@ import LoginScreen from "./screens/authscreens/LoginScreen"
 import RegisterScreen from "./screens/authscreens/RegisterScreen"
 import NotificationScreen from "./screens/mainscreens/NotificationScreen"
 import ReportScreen from "./screens/mainscreens/ReportScreen"
+import AIPetSearchScreen from "./screens/mainscreens/AIPetSearchScreen"
+import CommunityScreen from "./screens/mainscreens/CommunityScreen";  
+import HomeScreen from "./screens/mainscreens/HomeScreen";  
+
 
 const Stack = createNativeStackNavigator()
 
@@ -93,8 +97,26 @@ export default function App() {
             />
 
             <Stack.Screen
+              name="HomeScreen"
+              component={HomeScreen}
+              options={{ animation: "slide_from_left" }}
+            />
+
+            <Stack.Screen
               name="ReportScreen"
               component={ReportScreen}
+              options={{ animation: "slide_from_right" }}
+            />
+
+            <Stack.Screen
+              name="AIPetSearchScreen"
+              component={AIPetSearchScreen}
+              options={{ animation: "slide_from_right" }}
+            />
+
+            <Stack.Screen
+              name="CommunityScreen"
+              component={CommunityScreen}
               options={{ animation: "slide_from_right" }}
             />
           </>

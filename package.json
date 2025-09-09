@@ -1,5 +1,5 @@
 {
-  "name": "pettresq",
+  "name": "petresq",
   "license": "0BSD",
   "version": "1.0.0",
   "main": "index.js",
@@ -29,17 +29,22 @@
     "expo-status-bar": "~2.2.3",
     "firebase": "^12.2.1",
     "lucide-react": "^0.535.0",
+    "moment": "^2.30.1",
     "react": "19.0.0",
     "react-native": "0.79.5",
     "react-native-dotenv": "^3.4.11",
     "react-native-feather": "^1.1.2",
     "react-native-gesture-handler": "~2.24.0",
+    "react-native-google-places-autocomplete": "^2.5.7",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
-    "react-native-maps": "^1.20.1",
+    "react-native-maps": "1.20.1",
+    "react-native-modal-datetime-picker": "^18.0.0",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
-    "twrnc": "^4.9.1"
+    "twrnc": "^4.9.1",
+    "uuid": "^9.0.0",
+    "react-native-pager-view": "6.7.1"
   },
   "devDependencies": {
     "@babel/core": "^7.28.3"
