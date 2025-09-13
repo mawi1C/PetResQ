@@ -1051,3 +1051,285 @@ export const getEmbeddingStats = async () => {
     throw error;
   }
 };
+
+/**
+ * Submit a pet claim request
+ */
+export const submitPetClaim = async (foundPetId, claimData) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("You must be logged in to claim a pet.");
+
+  const validationErrors = [];
+  if (!claimData.proofImages || claimData.proofImages.length === 0)
+    validationErrors.push("Proof images are required");
+  if (!claimData.contact) validationErrors.push("Contact information is required");
+
+  if (validationErrors.length > 0)
+    throw new Error(`Validation failed: ${validationErrors.join(", ")}`);
+
+  const sanitizedData = {
+    proofImageUrls: [],
+    contact: sanitizeInput(claimData.contact, "text", 100),
+    additionalInfo: sanitizeInput(claimData.additionalInfo, "text", 500),
+    status: "pending", // pending, accepted, rejected, needs_more_info
+    requestedMoreInfo: false,
+    rejectionReason: "",
+  };
+
+  try {
+    // Upload proof images
+    for (const img of claimData.proofImages) {
+      const imageUrl = await uploadImageToCloudinary(img.uri);
+      sanitizedData.proofImageUrls.push(imageUrl);
+    }
+  } catch (error) {
+    throw new Error(error.message || "Failed to upload proof images.");
+  }
+
+  try {
+    // Get found pet details
+    const foundPetDoc = await getDoc(doc(db, "foundPets", foundPetId));
+    if (!foundPetDoc.exists()) throw new Error("Found pet report not found");
+    const foundPetData = foundPetDoc.data();
+    const finderId = foundPetData.ownerId;
+
+    // Create claim document
+    const claimRef = await addDoc(collection(db, "petClaims"), {
+      ...sanitizedData,
+      foundPetId,
+      claimantId: user.uid,
+      finderId,
+      createdAt: serverTimestamp(),
+    });
+
+    // Create notification for the finder
+    await addDoc(collection(db, "notifications"), {
+      userId: finderId,
+      type: "pet_claim",
+      title: `New Pet Claim Request`,
+      body: `Someone is claiming the pet you found. Review their proof of ownership.`,
+      data: {
+        claimId: claimRef.id,
+        foundPetId,
+        claimantId: user.uid,
+        contact: sanitizedData.contact,
+      },
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+
+    // Send local notification to finder
+    await sendLocalNotification(
+      `New Pet Claim Request`,
+      `Someone is claiming the pet you found. Please review their claim.`
+    );
+
+    return { id: claimRef.id, ...sanitizedData };
+  } catch (error) {
+    throw new Error(error.message || "Failed to submit pet claim.");
+  }
+};
+
+/**
+ * Get claim details
+ */
+export const getClaimDetails = async (claimId) => {
+  try {
+    const claimDoc = await getDoc(doc(db, "petClaims", claimId));
+    if (!claimDoc.exists()) throw new Error("Claim not found");
+    
+    return { id: claimDoc.id, ...claimDoc.data() };
+  } catch (error) {
+    throw new Error(error.message || "Failed to get claim details.");
+  }
+};
+
+/**
+ * Update claim status (accept, reject, or request more info)
+ */
+export const updateClaimStatus = async (claimId, status, options = {}) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("You must be logged in to update claim status.");
+
+  try {
+    const claimDoc = await getDoc(doc(db, "petClaims", claimId));
+    if (!claimDoc.exists()) throw new Error("Claim not found");
+    
+    const claimData = claimDoc.data();
+    
+    // Verify the user is the finder
+    if (claimData.finderId !== user.uid) {
+      throw new Error("Only the finder can update claim status.");
+    }
+
+    const updateData = {
+      status,
+      updatedAt: serverTimestamp(),
+    };
+
+    if (status === "rejected" && options.rejectionReason) {
+      updateData.rejectionReason = sanitizeInput(options.rejectionReason, "text", 200);
+    }
+
+    if (status === "needs_more_info" && options.moreInfoRequest) {
+      updateData.requestedMoreInfo = true;
+      updateData.moreInfoRequest = sanitizeInput(options.moreInfoRequest, "text", 200);
+    }
+
+    await updateDoc(doc(db, "petClaims", claimId), updateData);
+
+    // Create appropriate notification for claimant
+    let notificationTitle = "";
+    let notificationBody = "";
+    let notificationType = "";
+
+    switch (status) {
+      case "accepted":
+        notificationTitle = "Claim Accepted!";
+        notificationBody = "The finder has accepted your claim. Contact them to arrange pickup.";
+        notificationType = "claim_accepted";
+        break;
+      case "rejected":
+        notificationTitle = "Claim Rejected";
+        notificationBody = `The finder rejected your claim. Reason: ${options.rejectionReason || "Not specified"}`;
+        notificationType = "claim_rejected";
+        break;
+      case "needs_more_info":
+        notificationTitle = "More Information Needed";
+        notificationBody = `The finder needs more information: ${options.moreInfoRequest}`;
+        notificationType = "claim_more_info";
+        break;
+    }
+
+    if (notificationType) {
+      await addDoc(collection(db, "notifications"), {
+        userId: claimData.claimantId,
+        type: notificationType,
+        title: notificationTitle,
+        body: notificationBody,
+        data: {
+          claimId,
+          foundPetId: claimData.foundPetId,
+          contact: claimData.finderContact || "",
+          rejectionReason: options.rejectionReason,
+          moreInfoRequest: options.moreInfoRequest,
+        },
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+
+      // Send local notification to claimant
+      await sendLocalNotification(notificationTitle, notificationBody);
+    }
+
+    return { success: true };
+  } catch (error) {
+    throw new Error(error.message || "Failed to update claim status.");
+  }
+};
+
+/**
+ * Submit additional information for a claim
+ */
+export const submitAdditionalClaimInfo = async (claimId, additionalInfo, additionalImages = []) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("You must be logged in to submit additional information.");
+
+  try {
+    const claimDoc = await getDoc(doc(db, "petClaims", claimId));
+    if (!claimDoc.exists()) throw new Error("Claim not found");
+    
+    const claimData = claimDoc.data();
+    
+    // Verify the user is the claimant
+    if (claimData.claimantId !== user.uid) {
+      throw new Error("Only the claimant can submit additional information.");
+    }
+
+    const additionalImageUrls = [];
+    
+    // Upload additional images if any
+    for (const img of additionalImages) {
+      const imageUrl = await uploadImageToCloudinary(img.uri);
+      additionalImageUrls.push(imageUrl);
+    }
+
+    const updateData = {
+      additionalInfoSubmitted: sanitizeInput(additionalInfo, "text", 500),
+      additionalProofImageUrls: additionalImageUrls,
+      status: "pending", // Reset to pending for review
+      updatedAt: serverTimestamp(),
+    };
+
+    await updateDoc(doc(db, "petClaims", claimId), updateData);
+
+    // Notify finder that additional information was submitted
+    await addDoc(collection(db, "notifications"), {
+      userId: claimData.finderId,
+      type: "claim_additional_info",
+      title: "Additional Information Submitted",
+      body: "The claimant has submitted additional information for your review.",
+      data: {
+        claimId,
+        foundPetId: claimData.foundPetId,
+      },
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+
+    await sendLocalNotification(
+      "Additional Information Submitted",
+      "The claimant has submitted additional information for your review."
+    );
+
+    return { success: true };
+  } catch (error) {
+    throw new Error(error.message || "Failed to submit additional information.");
+  }
+};
+
+/**
+ * Get user's claim requests
+ */
+export const getUserClaims = async (userId = null) => {
+  const user = auth.currentUser;
+  const targetUserId = userId || user.uid;
+  
+  if (!user) throw new Error("You must be logged in to get claim requests.");
+
+  try {
+    // Claims where user is claimant
+    const claimantQuery = query(
+      collection(db, "petClaims"),
+      where("claimantId", "==", targetUserId)
+    );
+    
+    // Claims where user is finder
+    const finderQuery = query(
+      collection(db, "petClaims"),
+      where("finderId", "==", targetUserId)
+    );
+
+    const [claimantSnap, finderSnap] = await Promise.all([
+      getDocs(claimantQuery),
+      getDocs(finderQuery)
+    ]);
+
+    const claims = [];
+
+    claimantSnap.forEach((doc) => {
+      claims.push({ ...doc.data(), id: doc.id, role: "claimant" });
+    });
+
+    finderSnap.forEach((doc) => {
+      claims.push({ ...doc.data(), id: doc.id, role: "finder" });
+    });
+
+    // Sort by creation date, newest first
+    claims.sort((a, b) => b.createdAt?.toMillis?.() - a.createdAt?.toMillis?.());
+
+    return claims;
+  } catch (error) {
+    throw new Error(error.message || "Failed to get claim requests.");
+  }
+};
