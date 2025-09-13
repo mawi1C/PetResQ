@@ -98,7 +98,7 @@ export default function ErrorModal({
                   onPress={onResend}
                 >
                   <CustomText
-                    style={tw`text-blue-600 text-center text-sm font-semibold py-1.5`}
+                    style={tw`text-blue-600 text-center text-xs font-semibold py-1.5`}
                   >
                     Resend Verification Email
                   </CustomText>

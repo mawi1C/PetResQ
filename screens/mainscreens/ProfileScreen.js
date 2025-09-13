@@ -13,7 +13,14 @@ import CustomText from "../../components/CustomText";
 import { Ionicons } from "@expo/vector-icons";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
 import { useNavigation } from "@react-navigation/native";
 
 export default function ProfileScreen() {
@@ -25,6 +32,9 @@ export default function ProfileScreen() {
     rescuedPets: 12,
     overallRating: 5.0,
   });
+
+  const [userPets, setUserPets] = useState([]);
+  const [loadingPets, setLoadingPets] = useState(true);
 
   const navigation = useNavigation();
 
@@ -58,6 +68,41 @@ export default function ProfileScreen() {
     fetchUserData();
   }, []);
 
+  // Fetch user pets from Firestore
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) {
+      setLoadingPets(false);
+      return;
+    }
+
+    const petsQuery = query(
+      collection(db, "pets"),
+      where("ownerId", "==", user.uid)
+    );
+
+    const unsubscribe = onSnapshot(
+      petsQuery,
+      (querySnapshot) => {
+        const pets = [];
+        querySnapshot.forEach((doc) => {
+          pets.push({
+            id: doc.id,
+            ...doc.data(),
+          });
+        });
+        setUserPets(pets);
+        setLoadingPets(false);
+      },
+      (error) => {
+        console.error("Error fetching pets:", error);
+        setLoadingPets(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -66,7 +111,8 @@ export default function ProfileScreen() {
     }
   };
 
-  const statusBarHeight = Platform.OS === "android" ? StatusBar.currentHeight : 0;
+  const statusBarHeight =
+    Platform.OS === "android" ? StatusBar.currentHeight : 0;
 
   const menuItems = [
     {
@@ -113,28 +159,28 @@ export default function ProfileScreen() {
     },
   ];
 
-  const recentActivities = [
-    {
-      id: 1,
-      type: "sighting",
-      title: "Sightings",
-      description: "You report a sighting of a pet named Rara",
-      icon: "eye-outline",
-      iconColor: "#F59E0B",
-      backgroundColor: "#FEF3C7",
-      action: "View details",
-    },
-    {
-      id: 2,
-      type: "ai",
-      title: "AI Analysis",
-      description: "You started AI search of your pet named Mile",
-      icon: "flash-outline",
-      iconColor: "#8B5CF6",
-      backgroundColor: "#F3E8FF",
-      action: "View details",
-    },
-  ];
+  // Helper function to get tag color based on attribute
+  const getTagColor = (type, value) => {
+    const colors = {
+      gender: {
+        male: { bg: "#f3f3f3ff", text: "#f58b00ff" },
+        female: { bg: "#f3f3f3ff", text: "#f58b00ff" },
+        default: { bg: "#f3f3f3ff", text: "#f58b00ff" },
+      },
+      size: {
+        small: { bg: "#f3f3f3ff", text: "#f58b00ff" },
+        medium: { bg: "#f3f3f3ff", text: "#f58b00ff" },
+        large: { bg: "#f3f3f3ff", text: "#f58b00ff" },
+        default: { bg: "#f3f3f3ff", text: "#f58b00ff" },
+      },
+      color: {
+        default: { bg: "#f3f3f3ff", text: "#f58b00ff" },
+      },
+    };
+
+    const typeColors = colors[type] || colors.color;
+    return typeColors[value?.toLowerCase()] || typeColors.default;
+  };
 
   return (
     <SafeAreaView style={tw`flex-1 bg-white`}>
@@ -299,61 +345,183 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        {/* RECENT ACTIVITY */}
+        {/* REGISTERED PETS SECTION */}
         <View style={tw`px-4 mb-6`}>
-          <CustomText
-            size="xs"
-            weight="SemiBold"
-            color="#374151"
-            style={tw`mb-4`}
-          >
-            Recent Activity
-          </CustomText>
-
-          {recentActivities.map((activity) => (
-            <View
-              key={activity.id}
-              style={tw`bg-white border-2 border-gray-100 rounded-2xl p-4 mb-3`}
+          <View style={tw`flex-row items-center justify-between mb-4`}>
+            <CustomText size="xs" weight="SemiBold" color="#374151">
+              Registered Pet's
+            </CustomText>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("Home")}
+              style={tw`bg-gray-800 px-4 py-2 rounded-lg`}
             >
-              <View style={tw`flex-row items-start`}>
-                <View
-                  style={[
-                    tw`w-8 h-8 rounded-full items-center justify-center mr-3 rounded-lg`,
-                    { backgroundColor: activity.backgroundColor },
-                  ]}
-                >
-                  <Ionicons
-                    name={activity.icon}
-                    size={20}
-                    color={activity.iconColor}
-                  />
-                </View>
+              <CustomText size="xs" color="#fff" weight="Medium">
+                Add Pet
+              </CustomText>
+            </TouchableOpacity>
+          </View>
 
-                <View style={tw`flex-1`}>
-                  <CustomText
-                    size="xs"
-                    weight="Medium"
-                    color="#374151"
-                    style={tw`mb-1`}
+          {loadingPets ? (
+            <View style={tw`items-center justify-center py-8`}>
+              <CustomText size="xs" color="#6b7280">
+                Loading your pets...
+              </CustomText>
+            </View>
+          ) : userPets.length === 0 ? (
+            <View
+              style={tw`items-center justify-center py-8 border border-gray-200 rounded-xl mb-5`}
+            >
+              <Ionicons name="paw" size={22} color="#9ca3af" />
+              <CustomText
+                size="xs"
+                color="#6b7280"
+                style={tw`mt-2 text-center`}
+              >
+                No pets registered yet
+              </CustomText>
+              <CustomText
+                size="xs"
+                color="#9ca3af"
+                style={tw`mt-1 text-center`}
+              >
+                Register your first pet to get started
+              </CustomText>
+            </View>
+          ) : (
+            userPets.map((pet) => (
+              <View
+                key={pet.id}
+                style={tw`bg-white border border-gray-200 rounded-xl p-4 mb-4 shadow-sm`}
+              >
+                {/* Pet Header with Image, Name and Edit Button */}
+                <View style={tw`flex-row items-start justify-between mb-3`}>
+                  <View style={tw`flex-row items-center flex-1`}>
+                    <Image
+                      source={{ uri: pet.photoUrl }}
+                      style={tw`w-12 h-12 rounded-full mr-3`}
+                      resizeMode="cover"
+                    />
+                    <View style={tw`flex-1`}>
+                      <CustomText
+                        size="sm"
+                        weight="SemiBold"
+                        color="#1F2937"
+                        style={tw`mb-1`}
+                      >
+                        {pet.petname}
+                      </CustomText>
+                      <CustomText size="xs" color="#6B7280">
+                        {pet.breed}
+                      </CustomText>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      console.log("Edit pet:", pet.id);
+                    }}
+                    style={tw`p-2 bg-gray-100 rounded-lg`}
                   >
-                    {activity.title}
-                  </CustomText>
-                  <CustomText
-                    size="xs"
-                    color="#6B7280"
-                    style={tw`mb-2`}
-                  >
-                    {activity.description}
-                  </CustomText>
-                  <TouchableOpacity>
-                    <CustomText size="xs" weight="Medium" color="#3B82F6">
-                      {activity.action}
-                    </CustomText>
+                    <Ionicons name="create" size={18} color="#32302eff" />
                   </TouchableOpacity>
                 </View>
+
+                {/* Pet Info Text */}
+                <CustomText
+                  size="xs"
+                  color="#6B7280"
+                  style={tw`mb-3 leading-4`}
+                >
+                  {pet.features ||
+                    pet.specialNeeds ||
+                    pet.behavior ||
+                    `${pet.species} • ${pet.age} • ${pet.color}`}
+                </CustomText>
+
+                {/* Pet Tags */}
+                <View style={tw`flex-row flex-wrap`}>
+                  {/* Gender Tag */}
+                  {pet.gender && (
+                    <View
+                      style={[
+                        tw`px-5 py-2 rounded-lg mr-2 mb-1 items-center`,
+                        {
+                          backgroundColor: getTagColor("gender", pet.gender).bg,
+                        },
+                      ]}
+                    >
+                      <CustomText
+                        size="xs"
+                        weight="Medium"
+                        style={{
+                          color: getTagColor("gender", pet.gender).text,
+                        }}
+                      >
+                        {pet.gender}
+                      </CustomText>
+                      <CustomText
+                        size="xs"
+                        weight="Regular"
+                        style={tw`text-gray-500`}
+                      >
+                        Gender
+                      </CustomText>
+                    </View>
+                  )}
+
+                  {/* Age Tag */}
+                  {pet.age && (
+                    <View
+                      style={[
+                        tw`px-5 py-2 rounded-lg mr-2 mb-1 items-center`,
+                        { backgroundColor: getTagColor("size", "medium").bg },
+                      ]}
+                    >
+                      <CustomText
+                        size="xs"
+                        weight="Medium"
+                        style={{ color: getTagColor("size", "medium").text }}
+                      >
+                        {pet.age}
+                      </CustomText>
+                      <CustomText
+                        size="xs"
+                        weight="Regular"
+                        style={tw`text-gray-500`}
+                      >
+                        Age
+                      </CustomText>
+                    </View>
+                  )}
+
+                  {/* Color Tag */}
+                  {pet.color && (
+                    <View
+                      style={[
+                        tw`px-5 py-2 rounded-lg mr-2 mb-1 items-center`,
+                        { backgroundColor: getTagColor("color", pet.color).bg },
+                      ]}
+                    >
+                      <CustomText
+                        size="xs"
+                        weight="Medium"
+                        style={{ color: getTagColor("color", pet.color).text }}
+                      >
+                        {pet.color}
+                      </CustomText>
+                      <CustomText
+                        size="xs"
+                        weight="Regular"
+                        style={tw`text-gray-500`}
+                      >
+                        Color
+                      </CustomText>
+                    </View>
+                  )}
+                </View>
               </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

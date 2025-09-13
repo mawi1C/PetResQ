@@ -852,7 +852,7 @@ export default function HomeScreen() {
             onPress={handleAiSearchPress}
           >
             <Ionicons name="flash" size={16} color="white" style={tw`mr-2`} />
-            <CustomText weight="Medium" size="3.3" color="white">
+            <CustomText weight="Medium" size="xs" color="white">
               Start AI Search
             </CustomText>
           </TouchableOpacity>
@@ -2051,7 +2051,7 @@ export default function HomeScreen() {
                         onPress={() => setIsEditing(true)}
                         style={tw`flex-1 py-3 rounded-xl border border-gray-300 items-center`}
                       >
-                        <CustomText size="sm" weight="Medium">
+                        <CustomText size="xs" weight="Medium">
                           Edit Details
                         </CustomText>
                       </TouchableOpacity>
@@ -2059,8 +2059,8 @@ export default function HomeScreen() {
                         onPress={handleStartAiAnalysis}
                         style={tw`flex-1 bg-purple-600 py-3 rounded-xl items-center`}
                       >
-                        <CustomText size="sm" weight="Medium" color="white">
-                          Start AI Analysis
+                        <CustomText size="xs" weight="Medium" color="white">
+                          Start AI Search
                         </CustomText>
                       </TouchableOpacity>
                     </View>
@@ -2069,7 +2069,7 @@ export default function HomeScreen() {
                       onPress={() => setSelectedPet(null)}
                       style={tw`py-3 mt-4 items-center`}
                     >
-                      <CustomText size="sm" color="#6b7280">
+                      <CustomText size="xs" color="#6b7280">
                         ← Back to pet selection
                       </CustomText>
                     </TouchableOpacity>

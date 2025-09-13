@@ -30,7 +30,12 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import moment from "moment";
-import { reportSighting, getUserNotifications} from "../../utils/PetService";
+import {
+  reportSighting,
+  getUserNotifications,
+  markSightingAsFalse,
+  submitPetClaim,
+} from "../../utils/PetService";
 import ErrorModal from "../../components/CustomModal";
 import PagerView from "react-native-pager-view";
 import MapView, { Marker } from "react-native-maps";
@@ -68,24 +73,31 @@ const CommunityScreen = () => {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
   const [hasNewNotification, setHasNewNotification] = useState(false);
-  
-    useFocusEffect(
-      React.useCallback(() => {
-        const checkNotifications = async () => {
-          try {
-            const userNotifications = await getUserNotifications();
-            // check if any notification is unread
-            const hasUnread = userNotifications.some((n) => !n.read);
-            setHasNewNotification(hasUnread);
-          } catch (error) {
-            console.error("Error checking notifications:", error);
-          }
-        };
-  
-        checkNotifications();
-      }, [])
-    );
-  
+
+  const [showClaimForm, setShowClaimForm] = useState(false);
+  const [claimData, setClaimData] = useState({
+    proofImages: [],
+    contact: "",
+    additionalInfo: "",
+  });
+  const [claimErrors, setClaimErrors] = useState({});
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkNotifications = async () => {
+        try {
+          const userNotifications = await getUserNotifications();
+          // check if any notification is unread
+          const hasUnread = userNotifications.some((n) => !n.read);
+          setHasNewNotification(hasUnread);
+        } catch (error) {
+          console.error("Error checking notifications:", error);
+        }
+      };
+
+      checkNotifications();
+    }, [])
+  );
 
   const statusBarHeight =
     Platform.OS === "android" ? StatusBar.currentHeight : 0;
@@ -230,14 +242,18 @@ const CommunityScreen = () => {
     setCurrentImageIndex(0);
     setDetailsModalVisible(true);
     setShowSightingForm(false);
+    setShowClaimForm(false);
     resetSightingForm();
+    resetClaimForm();
   };
 
   const closeDetails = () => {
     setSelectedPost(null);
     setDetailsModalVisible(false);
     setShowSightingForm(false);
+    setShowClaimForm(false);
     resetSightingForm();
+    resetClaimForm();
   };
 
   const handlePageSelected = (e) => {
@@ -257,8 +273,21 @@ const CommunityScreen = () => {
     setSightingErrors({});
   };
 
+  const resetClaimForm = () => {
+    setClaimData({
+      proofImages: [],
+      contact: "",
+      additionalInfo: "",
+    });
+    setClaimErrors({});
+  };
+
   const handleReportSighting = () => {
     setShowSightingForm(true);
+  };
+
+  const handleClaimPet = () => {
+    setShowClaimForm(true);
   };
 
   const handleSightingImagePicker = async () => {
@@ -304,6 +333,54 @@ const CommunityScreen = () => {
     setSightingData((prev) => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleClaimImagePicker = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        setErrorMessage(
+          "Camera roll permission is required to add proof photos"
+        );
+        setShowErrorModal(true);
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+        aspect: [4, 3],
+      });
+
+      if (!result.canceled && result.assets) {
+        const newImages = result.assets.map((asset) => ({
+          uri: asset.uri,
+          type: "image/jpeg",
+          name: `proof_${Date.now()}.jpg`,
+        }));
+
+        setClaimData((prev) => ({
+          ...prev,
+          proofImages: [...prev.proofImages, ...newImages].slice(0, 5),
+        }));
+
+        if (claimErrors.proofImages) {
+          setClaimErrors((prev) => ({ ...prev, proofImages: null }));
+        }
+      }
+    } catch (error) {
+      setErrorMessage("Failed to select images. Please try again.");
+      setShowErrorModal(true);
+    }
+  };
+
+  const removeClaimImage = (index) => {
+    setClaimData((prev) => ({
+      ...prev,
+      proofImages: prev.proofImages.filter((_, i) => i !== index),
     }));
   };
 
@@ -379,6 +456,54 @@ const CommunityScreen = () => {
     return Object.keys(errors).length === 0;
   };
 
+  const validateClaimForm = () => {
+    const errors = {};
+
+    if (!claimData.contact?.trim()) {
+      errors.contact = "Contact information is required";
+    }
+
+    if (!claimData.proofImages || claimData.proofImages.length === 0) {
+      errors.proofImages = "At least one proof image is required";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleAddProofImage = async () => {
+    try {
+      const result = await launchImageLibrary({
+        mediaType: "photo",
+        quality: 0.8,
+      });
+
+      if (!result.didCancel && result.assets && result.assets.length > 0) {
+        const newImage = {
+          uri: result.assets[0].uri,
+          type: result.assets[0].type || "image/jpeg",
+          name: result.assets[0].fileName || `proof_${Date.now()}.jpg`,
+        };
+
+        setClaimData((prev) => ({
+          ...prev,
+          proofImages: [...(prev.proofImages || []), newImage],
+        }));
+      }
+    } catch (error) {
+      console.error("Error selecting image:", error);
+      setErrorMessage("Failed to select image");
+      setShowErrorModal(true);
+    }
+  };
+
+  const handleRemoveProofImage = (index) => {
+    setClaimData((prev) => ({
+      ...prev,
+      proofImages: prev.proofImages.filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSubmitSighting = async () => {
     if (!validateSightingForm()) {
       return;
@@ -394,6 +519,32 @@ const CommunityScreen = () => {
       resetSightingForm();
     } catch (error) {
       setErrorMessage(error.message || "Failed to submit sighting report");
+      setShowErrorModal(true);
+    } finally {
+      setIsSubmittingSighting(false);
+    }
+  };
+
+  // Update the handleSubmitClaim function
+  const handleSubmitClaim = async () => {
+    if (!validateClaimForm()) {
+      return;
+    }
+
+    try {
+      setIsSubmittingSighting(true); // Reuse loading state
+
+      await submitPetClaim(selectedPost.id, claimData);
+
+      setShowSuccessModal(true);
+      setShowClaimForm(false);
+      resetClaimForm();
+
+      setSuccessMessage(
+        "Claim submitted successfully! The finder will review your request."
+      );
+    } catch (error) {
+      setErrorMessage(error.message || "Failed to submit claim request");
       setShowErrorModal(true);
     } finally {
       setIsSubmittingSighting(false);
@@ -429,7 +580,9 @@ const CommunityScreen = () => {
                   .join(" ")}
               </CustomText>
               <CustomText size="xs" color="#6b7280">
-                {post.location || post.lastSeenLocation || "Unknown Location"}
+                {post.type === "lost"
+                  ? post.lastSeenLocation || post.location || "Unknown Location"
+                  : post.foundLocation || post.location || "Unknown Location"}
               </CustomText>
             </View>
           </View>
@@ -477,7 +630,12 @@ const CommunityScreen = () => {
               {post.species} | {post.breed}
             </CustomText>
           </View>
-          <View style={tw`px-3 py-1.5 rounded-full`}>
+          <View
+            style={tw.style(
+              "px-3 py-1.5 rounded-full rounded-lg",
+              post.type === "lost" ? "bg-red-100" : "bg-blue-100"
+            )}
+          >
             <CustomText
               weight="SemiBold"
               size="sm"
@@ -586,12 +744,16 @@ const CommunityScreen = () => {
               color="#1f2937"
               style={tw`flex-1 text-center`}
             >
-              {showSightingForm ? "Report Sighting" : "Report Details"}
+              {showSightingForm
+                ? "Report Sighting"
+                : showClaimForm
+                ? "Claim Pet"
+                : "Report Details"}
             </CustomText>
             <View style={tw`w-6`} />
           </View>
 
-          {selectedPost && !showSightingForm && (
+          {selectedPost && !showSightingForm && !showClaimForm && (
             <ScrollView
               style={tw`flex-1 bg-gray-50`}
               showsVerticalScrollIndicator={false}
@@ -702,7 +864,7 @@ const CommunityScreen = () => {
                     style={tw`mt-2 self-start px-4 py-1.5 rounded-lg ${
                       selectedPost.type === "lost"
                         ? "bg-[#FE0101]"
-                        : "bg-blue-500"
+                        : "bg-green-600"
                     }`}
                   >
                     <CustomText weight="Bold" size="xs" color="white">
@@ -751,7 +913,7 @@ const CommunityScreen = () => {
                       {selectedPost.displayName || "Anonymous"}
                     </CustomText>
                     <CustomText size="xs" color="#6b7280">
-                      Owner
+                      {selectedPost.type === "lost" ? "Owner" : "Finder"}
                     </CustomText>
                   </View>
                   <TouchableOpacity style={tw`p-2`}>
@@ -790,7 +952,9 @@ const CommunityScreen = () => {
                     <Ionicons
                       name="location-outline"
                       size={16}
-                      color="#ef4444"
+                      color={
+                        selectedPost.type === "lost" ? "#ef4444" : "#10b981"
+                      }
                       style={tw`mt-0.5 mr-2`}
                     />
                     <CustomText size="sm" color="#1f2937">
@@ -816,7 +980,9 @@ const CommunityScreen = () => {
                       <Ionicons
                         name="calendar-outline"
                         size={15}
-                        color="#ef4444"
+                        color={
+                          selectedPost.type === "lost" ? "#ef4444" : "#10b981"
+                        }
                         style={tw`mr-2`}
                       />
                       <CustomText size="sm" color="#1f2937">
@@ -828,6 +994,95 @@ const CommunityScreen = () => {
                   </View>
                 )}
               </View>
+
+              {/* Found Details Section for Found Reports */}
+              {selectedPost.type === "found" && (
+                <View style={tw`bg-white px-4 py-4`}>
+                  <CustomText
+                    weight="SemiBold"
+                    size="xs"
+                    color="#1f2937"
+                    style={tw`mb-3`}
+                  >
+                    Found Details
+                  </CustomText>
+
+                  {/* Current Location */}
+                  {selectedPost.currentLocation && (
+                    <View style={tw`mb-3`}>
+                      <CustomText
+                        weight="Medium"
+                        size="xs"
+                        color="#6b7280"
+                        style={tw`mb-1`}
+                      >
+                        CURRENT LOCATION
+                      </CustomText>
+                      <View style={tw`flex-row items-start`}>
+                        <Ionicons
+                          name="home-outline"
+                          size={16}
+                          color="#10b981"
+                          style={tw`mt-0.5 mr-2`}
+                        />
+                        <CustomText size="sm" color="#1f2937">
+                          {selectedPost.currentLocation}
+                        </CustomText>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Availability */}
+                  {selectedPost.availability && (
+                    <View style={tw`mb-3`}>
+                      <CustomText
+                        weight="Medium"
+                        size="xs"
+                        color="#6b7280"
+                        style={tw`mb-1`}
+                      >
+                        AVAILABILITY
+                      </CustomText>
+                      <View style={tw`flex-row items-start`}>
+                        <Ionicons
+                          name="time-outline"
+                          size={16}
+                          color="#10b981"
+                          style={tw`mt-0.5 mr-2`}
+                        />
+                        <CustomText size="sm" color="#1f2937">
+                          {selectedPost.availability}
+                        </CustomText>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Contact Information */}
+                  {selectedPost.contact && (
+                    <View>
+                      <CustomText
+                        weight="Medium"
+                        size="xs"
+                        color="#6b7280"
+                        style={tw`mb-1`}
+                      >
+                        CONTACT INFORMATION
+                      </CustomText>
+                      <View style={tw`flex-row items-start`}>
+                        <Ionicons
+                          name="call-outline"
+                          size={16}
+                          color="#10b981"
+                          style={tw`mt-0.5 mr-2`}
+                        />
+                        <CustomText size="sm" color="#1f2937">
+                          {selectedPost.contact}
+                        </CustomText>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )}
 
               {/* Pet Details Section */}
               <View style={tw`bg-white px-4 py-4`}>
@@ -950,7 +1205,7 @@ const CommunityScreen = () => {
                         style={tw`mr-1`}
                       />
                       <CustomText size="sm" color="#1f2937">
-                        {selectedPost.health || "Healthy"}
+                        {selectedPost.health || "Not Specified"}
                       </CustomText>
                     </View>
                   </View>
@@ -1422,6 +1677,7 @@ const CommunityScreen = () => {
                               contact: text,
                             }))
                           }
+                          keyboardType="phone-pad"
                         />
                       </View>
 
@@ -1464,27 +1720,266 @@ const CommunityScreen = () => {
             </SafeAreaView>
           )}
 
+          {/* Claim Pet Form */}
+          {selectedPost && showClaimForm && (
+            <SafeAreaView style={tw`flex-1 bg-white`}>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={tw`flex-1`}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+              >
+                <ScrollView
+                  style={tw`flex-1`}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={tw`pb-6`}
+                >
+                  {/* Header Section */}
+                  <View style={tw`flex-1 bg-white px-6 py-4`}>
+                    <View style={tw`flex-row items-start`}>
+                      <Ionicons
+                        name="heart-outline"
+                        size={12}
+                        color="#dc2626"
+                        style={tw`mt-1 mr-2`}
+                      />
+                      <CustomText
+                        size="2.8"
+                        color="#6b7280"
+                        style={tw`flex-1 leading-5`}
+                      >
+                        To claim this pet, please provide proof of ownership and
+                        contact information.
+                      </CustomText>
+                    </View>
+                  </View>
+
+                  <View style={tw`px-6`}>
+                    {/* Proof Images Section */}
+                    <View style={tw`mb-6`}>
+                      <CustomText
+                        weight="Medium"
+                        size="xs"
+                        color="#1f2937"
+                        style={tw`flex-1 mb-4`}
+                      >
+                        Proof of Ownership
+                        <CustomText size="base" color="#dc2626">
+                          {" "}
+                          *
+                        </CustomText>
+                      </CustomText>
+
+                      {claimData.proofImages.length === 0 && (
+                        <TouchableOpacity
+                          onPress={handleClaimImagePicker}
+                          style={tw`border-2 border-dashed border-gray-300 rounded-2xl p-6 items-center justify-center bg-white mb-3`}
+                        >
+                          <View style={tw`bg-gray-50 rounded-full p-4 mb-3`}>
+                            <Ionicons
+                              name="camera-outline"
+                              size={24}
+                              color="#7b7b7bff"
+                            />
+                          </View>
+                          <CustomText
+                            weight="Regular"
+                            size="xs"
+                            color="#717171ff"
+                            style={tw`mb-1`}
+                          >
+                            Tap to add proof photos
+                          </CustomText>
+                          <CustomText
+                            size="xs"
+                            color="#9ca3af"
+                            style={tw`text-center`}
+                          >
+                            Photos of you with the pet, vet records, etc.
+                          </CustomText>
+                        </TouchableOpacity>
+                      )}
+
+                      {claimData.proofImages.length > 0 && (
+                        <View>
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            style={tw`mb-3 pt-2`}
+                          >
+                            {claimData.proofImages.map((image, index) => (
+                              <View key={index} style={tw`relative mr-3`}>
+                                <Image
+                                  source={{ uri: image.uri }}
+                                  style={tw`w-24 h-24 rounded-xl`}
+                                  resizeMode="cover"
+                                />
+                                <TouchableOpacity
+                                  onPress={() => removeClaimImage(index)}
+                                  style={tw`absolute -top-2 -right-2 bg-red-500 rounded-full w-6 h-6 items-center justify-center`}
+                                >
+                                  <Ionicons
+                                    name="close"
+                                    size={12}
+                                    color="white"
+                                  />
+                                </TouchableOpacity>
+                              </View>
+                            ))}
+
+                            {claimData.proofImages.length < 5 && (
+                              <TouchableOpacity
+                                onPress={handleClaimImagePicker}
+                                style={tw`w-24 h-24 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 items-center justify-center ml-1`}
+                              >
+                                <Ionicons
+                                  name="add"
+                                  size={20}
+                                  color="#6b7280"
+                                />
+                                <CustomText
+                                  size="xs"
+                                  color="#6b7280"
+                                  style={tw`mt-1 text-center`}
+                                >
+                                  Add More
+                                </CustomText>
+                              </TouchableOpacity>
+                            )}
+                          </ScrollView>
+                        </View>
+                      )}
+
+                      {claimErrors.proofImages && (
+                        <CustomText size="xs" color="#dc2626" style={tw`mt-2`}>
+                          {claimErrors.proofImages}
+                        </CustomText>
+                      )}
+                    </View>
+
+                    {/* Contact Information Section */}
+                    <View style={tw`mb-6`}>
+                      <CustomText
+                        weight="Medium"
+                        size="xs"
+                        color="#1f2937"
+                        style={tw`flex-1 mb-4`}
+                      >
+                        Your Contact Information
+                        <CustomText size="base" color="#dc2626">
+                          {" "}
+                          *
+                        </CustomText>
+                      </CustomText>
+
+                      <View style={tw`bg-white rounded-2xl`}>
+                        <CustomInput
+                          placeholder="Phone number or email for the finder to contact you"
+                          value={claimData.contact}
+                          onChangeText={(text) =>
+                            setClaimData((prev) => ({ ...prev, contact: text }))
+                          }
+                          keyboardType="phone-pad"
+                        />
+                      </View>
+
+                      {claimErrors.contact && (
+                        <CustomText size="xs" color="#dc2626" style={tw`mt-2`}>
+                          {claimErrors.contact}
+                        </CustomText>
+                      )}
+                    </View>
+
+                    {/* Additional Information Section */}
+                    <View style={tw`mb-8`}>
+                      <CustomText
+                        weight="Medium"
+                        size="xs"
+                        color="#1f2937"
+                        style={tw`flex-1 mb-4`}
+                      >
+                        Additional Information
+                      </CustomText>
+
+                      <View style={tw`bg-white rounded-2xl`}>
+                        <CustomInput
+                          placeholder="Any additional information that can help verify your ownership"
+                          value={claimData.additionalInfo}
+                          onChangeText={(text) =>
+                            setClaimData((prev) => ({
+                              ...prev,
+                              additionalInfo: text,
+                            }))
+                          }
+                          multiline
+                          numberOfLines={4}
+                          placeholderTextColor="#9ca3af"
+                          textAlignVertical="top"
+                        />
+                      </View>
+                    </View>
+                  </View>
+                </ScrollView>
+
+                {/* Fixed Submit Button */}
+                <View style={tw`p-4 border-t border-gray-200 bg-white`}>
+                  <TouchableOpacity
+                    onPress={handleSubmitClaim}
+                    style={tw`bg-green-600 rounded-2xl py-4 items-center justify-center flex-row shadow-sm`}
+                  >
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={18}
+                      color="white"
+                      style={tw`mr-2`}
+                    />
+                    <CustomText weight="Medium" size="sm" color="white">
+                      Submit Claim
+                    </CustomText>
+                  </TouchableOpacity>
+                </View>
+              </KeyboardAvoidingView>
+            </SafeAreaView>
+          )}
+
+          {/* Bottom Buttons */}
           {selectedPost &&
             !showSightingForm &&
-            selectedPost.ownerId !== currentUserId &&
-            selectedPost.type === "lost" && (
+            !showClaimForm &&
+            selectedPost.ownerId !== currentUserId && (
               <View
                 style={tw`absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4`}
               >
-                <TouchableOpacity
-                  onPress={handleReportSighting}
-                  style={tw`bg-[#FE8C01] rounded-xl py-4 items-center justify-center flex-row`}
-                >
-                  <Ionicons
-                    name="eye-outline"
-                    size={18}
-                    color="white"
-                    style={tw`mr-2`}
-                  />
-                  <CustomText weight="Medium" size="sm" color="white">
-                    Report Sighting
-                  </CustomText>
-                </TouchableOpacity>
+                {selectedPost.type === "lost" ? (
+                  <TouchableOpacity
+                    onPress={handleReportSighting}
+                    style={tw`bg-[#FE8C01] rounded-xl py-4 items-center justify-center flex-row`}
+                  >
+                    <Ionicons
+                      name="eye-outline"
+                      size={18}
+                      color="white"
+                      style={tw`mr-2`}
+                    />
+                    <CustomText weight="Medium" size="sm" color="white">
+                      Report Sighting
+                    </CustomText>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleClaimPet}
+                    style={tw`bg-green-600 rounded-xl py-4 items-center justify-center flex-row`}
+                  >
+                    <Ionicons
+                      name="heart-outline"
+                      size={18}
+                      color="white"
+                      style={tw`mr-2`}
+                    />
+                    <CustomText weight="Medium" size="sm" color="white">
+                      This is my pet
+                    </CustomText>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
         </SafeAreaView>
@@ -1511,7 +2006,11 @@ const CommunityScreen = () => {
           setShowSuccessModal(false);
           closeDetails();
         }}
-        description="Sighting reported successfully! Thank you for helping reunite pets with their families."
+        description={
+          showSightingForm
+            ? "Sighting reported successfully! Thank you for helping reunite pets with their families."
+            : "Claim submitted successfully! The finder will review your request."
+        }
         type="success"
       />
     </SafeAreaView>

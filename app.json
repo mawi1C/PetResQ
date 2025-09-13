@@ -9,6 +9,10 @@
       "image": "./assets/images/logo2.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
-    }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-build-properties"
+    ]
   }
 }
